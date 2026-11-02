@@ -12,6 +12,7 @@ SCRIPTS = ROOT / 'scripts' / 'vuln'
 sys.path.insert(0, str(SCRIPTS))
 
 import agility_fetch  # noqa: E402
+import raise_prs  # noqa: E402
 
 PY = sys.executable
 TICKET_TEXT = ('<p>jackson: com.fasterxml.jackson.core:jackson-databind 2.13.0 -> 2.13.4.2 (CVE-2022-42003)</p>'
@@ -338,6 +339,92 @@ class FlowTests(unittest.TestCase):
         log = (self.feature / 'vuln' / 'build-xl-platform.log').read_text()
         self.assertIn('> Task :compileScala', log)
 
+    def test_resume_reapplies_the_handoff_from_repos_already_published(self):
+        conf = 'versions {\n        xlPlatformVersion="25.3.10-1025.1600"\n}\n'
+        (self.ws / 'service-a' / 'gradle').mkdir(exist_ok=True)
+        (self.ws / 'service-a' / 'gradle' / 'dependencies.conf').write_text(conf)
+        code = ('import sys\nt = open("gradle/dependencies.conf").read()\n'
+                'sys.exit(0 if "xlPlatformVersion=\\"7.7.7\\"" in t else 1)')
+        config = json.loads(self.config.read_text())
+        config['build']['version_command'] = [PY, '-c', 'print("version: 7.7.7")']
+        config['repo_overrides'] = {'service-a': {'command': [PY, '-c', code]}}
+        config['flows']['deploy']['publish'] = True
+        config['handoff'] = [{'from': 'xl-platform', 'version_source': 'gradle',
+                              'to': [{'repo': 'service-a', 'file': 'gradle/dependencies.conf',
+                                      'key': 'xlPlatformVersion'}]}]
+        self.config.write_text(json.dumps(config))
+        (self.feature / 'vuln' / 'changes.json').write_text(json.dumps(
+            {'ticket': 'D-12345', 'flow': 'deploy', 'changes': [{'repo': 'xl-platform'}]}))
+        result = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                 '--workspace', self.ws, '--changed-only', '--from-repo', 'service-a')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('resuming at service-a', result.stdout)
+        data = json.loads((self.feature / 'vuln' / 'build-results.json').read_text())
+        self.assertNotIn('xl-platform', [r['repo'] for r in data['results']])
+        self.assertTrue(data['all_passed'])
+        self.assertEqual((self.ws / 'service-a' / 'gradle' / 'dependencies.conf').read_text(), conf)
+
+    def test_resume_at_an_unselected_repo_is_refused(self):
+        result, _ = self.changed_only(['service-b'], None, [], '--from-repo', 'xl-platform')
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('not one of the repos to build', result.stderr)
+
+    def test_next_run_restores_files_left_edited_by_a_stopped_run(self):
+        conf = b'versions {\r\n        xlPlatformVersion="25.3.10-1025.1600"\r\n}\r\n'
+        target = self.ws / 'service-a' / 'gradle' / 'dependencies.conf'
+        target.parent.mkdir(exist_ok=True)
+        target.write_bytes(conf.replace(b'25.3.10-1025.1600', b'9.9.9-STRAY'))
+        import base64
+        (self.feature / 'vuln' / 'handoff-backup.json').write_text(json.dumps(
+            [{'path': str(target), 'data': base64.b64encode(conf).decode('ascii')}]))
+        result = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                 '--workspace', self.ws)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('recovered an earlier interrupted run', result.stdout)
+        self.assertEqual(target.read_bytes(), conf)
+        self.assertFalse((self.feature / 'vuln' / 'handoff-backup.json').exists())
+
+    def test_backup_is_removed_after_a_normal_run(self):
+        (self.ws / 'service-a' / 'gradle').mkdir(exist_ok=True)
+        (self.ws / 'service-a' / 'gradle' / 'dependencies.conf').write_text('        k="1.0.0"\n')
+        config = json.loads(self.config.read_text())
+        config['build']['version_command'] = [PY, '-c', 'print("version: 7.7.7")']
+        config['flows']['deploy']['publish'] = True
+        config['handoff'] = [{'from': 'xl-platform', 'version_source': 'gradle',
+                              'to': [{'repo': 'service-a', 'file': 'gradle/dependencies.conf', 'key': 'k'}]}]
+        self.config.write_text(json.dumps(config))
+        result = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                 '--workspace', self.ws)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((self.feature / 'vuln' / 'handoff-backup.json').exists())
+
+    def test_repo_env_override_applies_only_to_that_repo(self):
+        config = json.loads(self.config.read_text())
+        config['build']['command'] = [PY, '-c', 'import os; print("JDK=" + os.environ.get("JDK_TAG", "none"))']
+        config['repo_overrides'] = {'xl-platform': {'env': {'JDK_TAG': 'seventeen'}}}
+        self.config.write_text(json.dumps(config))
+        result = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                 '--workspace', self.ws)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        vuln = self.feature / 'vuln'
+        self.assertIn('JDK=seventeen', (vuln / 'build-xl-platform.log').read_text())
+        self.assertIn('JDK=none', (vuln / 'build-service-a.log').read_text())
+
+    def test_version_command_uses_the_repos_env(self):
+        (self.ws / 'service-a' / 'gradle').mkdir(exist_ok=True)
+        (self.ws / 'service-a' / 'gradle' / 'dependencies.conf').write_text('        k="1.0.0"\n')
+        config = json.loads(self.config.read_text())
+        config['build']['version_command'] = [PY, '-c', 'import os; print("version: " + os.environ.get("JDK_TAG", "none"))']
+        config['repo_overrides'] = {'xl-platform': {'env': {'JDK_TAG': 'seventeen'}}}
+        config['flows']['deploy']['publish'] = True
+        config['handoff'] = [{'from': 'xl-platform', 'version_source': 'gradle',
+                              'to': [{'repo': 'service-a', 'file': 'gradle/dependencies.conf', 'key': 'k'}]}]
+        self.config.write_text(json.dumps(config))
+        result = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                 '--workspace', self.ws)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('k 1.0.0 -> seventeen', result.stdout)
+
     def test_transitive_check_marks_only_not_found(self):
         findings = json.loads(self.findings.read_text())
         findings['findings'].append({'dependency': 'com.rabbitmq:amqp-client', 'vulnerable_version': '5.35.0',
@@ -420,6 +507,37 @@ class FlowTests(unittest.TestCase):
         pr = self.run_script('raise_prs.py', '--feature-dir', self.feature, '--workspace', self.ws, '--yes')
         self.assertEqual(pr.returncode, 6)
         self.assertIn('no PRs', pr.stderr)
+
+    def test_pr_plan_targets_the_intake_parent_branch_and_names_non_ticket_sources(self):
+        vuln = self.feature / 'vuln'
+        (vuln / 'build-results.json').write_text(json.dumps({'all_passed': True}))
+        (vuln / 'intake.json').write_text(json.dumps({'flow': 'deploy', 'ticket': 'D-12345', 'branch': 'vuln/D-12345',
+                                                      'base': 'release/26.3', 'base_for': {'service-b': 'master'}}))
+        (vuln / 'branches.json').write_text(json.dumps({'branch': 'vuln/D-12345', 'states': {}, 'missing': []}))
+        (vuln / 'apply-results.json').write_text(json.dumps({'repos': {
+            'service-a': {'branch': 'vuln/D-12345', 'files': ['a.conf']},
+            'service-b': {'branch': 'vuln/D-12345', 'files': ['b.conf']}}}))
+        (vuln / 'changes.json').write_text(json.dumps({'ticket': 'D-12345', 'flow': 'deploy', 'changes': [
+            {'repo': 'service-a', 'dependency': 'g:a', 'old': '1', 'new': '2', 'file': 'a.conf'},
+            {'repo': 'service-b', 'dependency': 'g:b', 'old': '1', 'new': '2', 'file': 'b.conf', 'source': 'a Trivy scan'}]}))
+        plan = self.run_script('raise_prs.py', '--feature-dir', self.feature, '--workspace', self.ws)
+        self.assertEqual(plan.returncode, 0, plan.stdout + plan.stderr)
+        self.assertIn('service-a: branch vuln/D-12345 -> release/26.3', plan.stdout)
+        self.assertIn('service-b: branch vuln/D-12345 -> master', plan.stdout)
+        self.assertIn('Nothing pushed', plan.stdout)
+        body = raise_prs.pr_body('D-12345', 'service-b', 'deploy',
+                                 [{'dependency': 'g:b', 'old': '1', 'new': '2', 'file': 'b.conf', 'source': 'a Trivy scan'}],
+                                 {}, 'footer line')
+        self.assertIn('`g:b` is not listed in D-12345; it comes from a Trivy scan', body)
+        self.assertTrue(body.endswith('footer line'))
+
+    def test_check_only_keeps_the_recorded_parent_branches(self):
+        for repo in ('xl-platform', 'service-a', 'service-b'):
+            git(self.ws / repo, 'branch', 'release/26.3')
+        self.assertEqual(self.prepare('--base', 'release/26.3').returncode, 0)
+        self.assertEqual(self.prepare('--check-only').returncode, 0)
+        bases = json.loads((self.feature / 'vuln' / 'branches.json').read_text())['bases']
+        self.assertEqual(bases.get('service-a'), 'release/26.3')
 
     def test_intake_validation(self):
         bad = self.run_script('intake.py', '--flow', 'deploy', '--ticket', 'nope', '--feature-dir', self.feature)

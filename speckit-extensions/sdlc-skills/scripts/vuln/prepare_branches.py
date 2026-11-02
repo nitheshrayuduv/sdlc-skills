@@ -6,7 +6,7 @@ again with --base (or --base-for REPO=BRANCH for a repo with a different parent)
 """
 import argparse
 
-from common import (UpgradeError, flow_repos, load_config, load_intake, main_wrapper, repo_dir, run,
+from common import (UpgradeError, flow_repos, load_config, load_intake, load_json, main_wrapper, repo_dir, run,
                     save_json, vuln_dir)
 
 
@@ -66,7 +66,9 @@ def main():
     for repo, state in states.items():
         print(f'{repo}: {branch} {state}')
     if args.check_only:
-        save_json(out / 'branches.json', {'branch': branch, 'states': states, 'missing': missing})
+        earlier = load_json(out / 'branches.json') if (out / 'branches.json').is_file() else {}
+        save_json(out / 'branches.json', {'branch': branch, 'states': states, 'missing': missing,
+                                          'bases': earlier.get('bases', {})})
         print('MISSING: ' + ', '.join(missing) if missing else 'The branch exists in every repo.')
         return 0
     actions = {}

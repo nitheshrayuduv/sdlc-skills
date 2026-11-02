@@ -6,6 +6,8 @@ under "handoff" in the config, so the next build uses it. Those edits are build 
 put back when the chain ends, so they never reach a PR.
 """
 import argparse
+import base64
+import json
 import os
 import re
 import subprocess
@@ -26,7 +28,14 @@ def resolve(command, root):
     return command
 
 
-def run_live(command, cwd, timeout, log_path, label, heartbeat=60):
+def repo_env(config, repo):
+    """The process environment for a repo, plus any `env` set for it under repo_overrides (for example JAVA_HOME)."""
+    env = dict(os.environ)
+    env.update(config.get('repo_overrides', {}).get(repo, {}).get('env', {}))
+    return env
+
+
+def run_live(command, cwd, timeout, log_path, label, heartbeat=60, env=None):
     """Run a build, writing its output to log_path as it happens and printing a heartbeat line.
 
     Without this a long Gradle build is silent until it ends. Tail the log to watch it:
@@ -35,7 +44,7 @@ def run_live(command, cwd, timeout, log_path, label, heartbeat=60):
     started, lines, last = time.time(), [], ['starting']
     try:
         proc = subprocess.Popen(command, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, errors='replace', bufsize=1)
+                                text=True, errors='replace', bufsize=1, env=env)
     except FileNotFoundError:
         return 127, f'Command not found: {command[0]}'
     with open(log_path, 'w', encoding='utf-8') as log:
@@ -65,6 +74,25 @@ def run_live(command, cwd, timeout, log_path, label, heartbeat=60):
     return code, ''.join(lines)
 
 
+def write_backup(snapshots, backup_path):
+    """Keep every temporary edit's original bytes on disk, so a hard stop cannot leave them behind."""
+    items = [{'path': str(p), 'data': base64.b64encode(data).decode('ascii')} for p, data in snapshots]
+    Path(backup_path).write_text(json.dumps(items), encoding='utf-8')
+
+
+def recover_interrupted_handoff(backup_path):
+    """Put back files left edited by an earlier run that was stopped before it could clean up."""
+    path = Path(backup_path)
+    if not path.is_file():
+        return []
+    restored = []
+    for item in reversed(json.loads(path.read_text(encoding='utf-8'))):
+        Path(item['path']).write_bytes(base64.b64decode(item['data']))
+        restored.append(item['path'])
+    path.unlink()
+    return restored
+
+
 def read_property(path, key):
     if not path.is_file():
         return None
@@ -90,10 +118,16 @@ def set_property(path, key, value):
     return None
 
 
-def gradle_version(root, config):
+def gradle_version(root, config, repo=None):
     """Ask the repo's own Gradle for the version it just published (release plugins compute it)."""
     command = resolve(config['build'].get('version_command', ['./gradlew', '-q', 'properties']), root)
-    code, output = run(command, root, config['build'].get('version_timeout_seconds', 900))
+    try:
+        done = subprocess.run(command, cwd=str(root), capture_output=True, text=True, errors='replace',
+                              timeout=config['build'].get('version_timeout_seconds', 900),
+                              env=repo_env(config, repo) if repo else None)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+    output = redact((done.stdout or '') + (done.stderr or ''))
     for line in output.splitlines():
         match = re.match(r'^version:\s*(\S+)\s*$', line)
         if match and match.group(1) != 'unspecified':
@@ -101,12 +135,12 @@ def gradle_version(root, config):
     return None
 
 
-def hand_off(repo, root, later, config, workspace, snapshots, notes):
+def hand_off(repo, root, later, config, workspace, snapshots, notes, backup_path=None):
     for rule in config.get('handoff', []):
         if rule['from'] != repo:
             continue
         if rule.get('version_source') == 'gradle':
-            version, origin = gradle_version(root, config), 'Gradle'
+            version, origin = gradle_version(root, config, repo), 'Gradle'
         else:
             origin = rule.get('version_file', 'gradle.properties')
             version = read_property(root / origin, rule.get('version_key', 'version'))
@@ -126,6 +160,8 @@ def hand_off(repo, root, later, config, workspace, snapshots, notes):
                 notes.append(f"{target['repo']}: key {target['key']} not found in {target['file']}, skipped")
             else:
                 snapshots.append((path, original))
+                if backup_path:
+                    write_backup(snapshots, backup_path)
                 notes.append(f"{target['repo']}: {target['key']} {old} -> {version} (from {repo}, temporary)")
 
 
@@ -173,7 +209,8 @@ def main():
     parser.add_argument('--flow', required=True)
     parser.add_argument('--feature-dir', required=True)
     parser.add_argument('--workspace')
-    parser.add_argument('--from-repo', help='resume the chain at this repo')
+    parser.add_argument('--from-repo', help='resume at this repo; earlier repos are assumed already published '
+                                            'and their versions are handed over again')
     parser.add_argument('--changed-only', action='store_true',
                         help='build only repos with a change in changes.json and the repos that pin them')
     parser.add_argument('--changes', help='changes.json for --changed-only (default: <feature-dir>/vuln/changes.json)')
@@ -183,12 +220,12 @@ def main():
     config = load_config(args.config)
     workspace = args.workspace or config['workspace_root']
     repos = flow_repos(config, args.flow)
-    if args.from_repo:
-        if args.from_repo not in repos:
-            raise UpgradeError(f'{args.from_repo} is not in the {args.flow} flow.', 2)
-        repos = repos[repos.index(args.from_repo):]
     out = vuln_dir(args.feature_dir)
-    skipped, scope_notes = [], []
+    skipped, scope_notes, done_before = [], [], []
+    backup_path = out / 'handoff-backup.json'
+    if not args.dry_run:
+        for restored in recover_interrupted_handoff(backup_path):
+            print(f'recovered an earlier interrupted run: restored {restored}')
     if args.changed_only:
         every = list(repos)
         repos, changed, scope_notes = affected_repos(repos, config, args.changes or out / 'changes.json')
@@ -198,10 +235,21 @@ def main():
         print(f"skipped (unchanged and not downstream of a change): {', '.join(skipped) or 'none'}")
         for note in scope_notes:
             print(f'warning: {note}')
+    if args.from_repo:
+        if args.from_repo not in repos:
+            raise UpgradeError(f'{args.from_repo} is not one of the repos to build: {", ".join(repos)}.', 2)
+        cut = repos.index(args.from_repo)
+        done_before, repos = repos[:cut], repos[cut:]
+        print(f"resuming at {args.from_repo}; assuming already built and published: {', '.join(done_before) or 'none'}")
     publish = bool(config['flows'][args.flow].get('publish'))
     timeout = config['build'].get('timeout_seconds')
     results, notes, snapshots, failed = [], [], [], None
     try:
+        if done_before and publish and not args.dry_run:
+            # The earlier repos are already in Maven Local; hand their versions to the repos still to build.
+            for earlier in done_before:
+                hand_off(earlier, repo_dir(workspace, earlier), repos, config, workspace, snapshots, notes,
+                         backup_path)
         for position, repo in enumerate(repos):
             root = repo_dir(workspace, repo)
             override = config.get('repo_overrides', {}).get(repo, {})
@@ -217,7 +265,7 @@ def main():
                 started = time.time()
                 log = out / f'{step}-{repo}.log'
                 print(f'[{repo}] {step} log: {log}', flush=True)
-                code, output = run_live(command, root, timeout, log, f'{repo} {step}')
+                code, output = run_live(command, root, timeout, log, f'{repo} {step}', env=repo_env(config, repo))
                 results.append({'repo': repo, 'step': step, 'status': 'passed' if code == 0 else 'failed',
                                 'exit_code': code, 'seconds': round(time.time() - started), 'log': str(log)})
                 if code:
@@ -227,10 +275,12 @@ def main():
             if failed:
                 break
             if publish and not args.dry_run:
-                hand_off(repo, root, repos[position + 1:], config, workspace, snapshots, notes)
+                hand_off(repo, root, repos[position + 1:], config, workspace, snapshots, notes, backup_path)
     finally:
         for path, original in reversed(snapshots):
             path.write_bytes(original)
+        if snapshots and backup_path.is_file():
+            backup_path.unlink()
     for note in notes:
         print(f'handoff: {note}')
     all_passed = failed is None and not args.dry_run and bool(results)

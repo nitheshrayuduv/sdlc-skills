@@ -2,17 +2,23 @@
 """Push the branches and open one PR per changed repo, only if every build passed."""
 import argparse
 
-from common import UpgradeError, load_config, load_json, main_wrapper, repo_dir, run, save_json, vuln_dir
+from common import (UpgradeError, load_config, load_intake, load_json, main_wrapper, repo_dir, run, save_json,
+                    vuln_dir)
 
 
-def pr_body(ticket, repo, flow, changes, siblings):
+def pr_body(ticket, repo, flow, changes, siblings, footer=None):
     lines = [f'Fixes the vulnerable dependency versions listed in Agility {ticket} ({flow} flow).', '',
              '| Dependency | From | To | File |', '| --- | --- | --- | --- |']
     lines += [f"| {c['dependency']} | {c['old']} | {c['new']} | `{c['file']}` |" for c in changes]
+    # A finding that did not come from the ticket says where it came from, so the PR does not overclaim.
+    for dependency, source in sorted({(c['dependency'], c['source']) for c in changes if c.get('source')}):
+        lines += ['', f'Note: `{dependency}` is not listed in {ticket}; it comes from {source}.']
     lines += ['', 'All repositories in the chain built successfully before this PR was opened.']
     others = {name: url for name, url in siblings.items() if name != repo}
     if others:
         lines += ['', 'Related PRs:'] + [f'- {name}: {url}' for name, url in others.items()]
+    if footer:
+        lines += ['', footer]
     return '\n'.join(lines)
 
 
@@ -22,6 +28,8 @@ def main():
     parser.add_argument('--workspace')
     parser.add_argument('--base', help='target branch for PRs when the working branch already existed')
     parser.add_argument('--yes', action='store_true', help='push and open PRs; without it only the plan is shown')
+    parser.add_argument('--trailer', help='extra line appended to each commit message, for example Co-Authored-By')
+    parser.add_argument('--footer', help='extra line appended to each PR description')
     parser.add_argument('--config')
     args = parser.parse_args()
     config = load_config(args.config)
@@ -33,13 +41,21 @@ def main():
     applied, plan = load_json(out / 'apply-results.json'), load_json(out / 'changes.json')
     branches = load_json(out / 'branches.json') if (out / 'branches.json').is_file() else {}
     created_from = branches.get('bases', {})
+    intake = load_intake(out)
     ticket, workspace = plan['ticket'], args.workspace or config['workspace_root']
     per_repo = {}
     for change in plan['changes']:
         per_repo.setdefault(change['repo'], []).append(change)
+
+    def target(repo):
+        # The parent branch the working branch was created from: recorded at creation, else the intake answer.
+        return (created_from.get(repo) or args.base or intake.get('base_for', {}).get(repo) or intake.get('base')
+                or config.get('base_branch', {}).get(repo))
+
     print('PR plan:')
     for repo, info in applied['repos'].items():
-        print(f"  {repo}: branch {info['branch']}, files {', '.join(info['files'])}")
+        print(f"  {repo}: branch {info['branch']} -> {target(repo) or 'repo default branch'}, "
+              f"files {', '.join(info['files'])}")
     if not args.yes:
         print('Nothing pushed. Re-run with --yes after the user confirms.')
         return 0
@@ -51,7 +67,8 @@ def main():
         if code:
             raise UpgradeError(f'{repo}: {text.strip()}', 7)
         if run(['git', 'diff', '--cached', '--quiet'], root)[0] != 0:
-            code, text = run(['git', 'commit', '-m', title], root)
+            message = ['-m', title] + (['-m', args.trailer] if args.trailer else [])
+            code, text = run(['git', 'commit'] + message, root)
             if code:
                 raise UpgradeError(f'{repo}: commit failed: {text.strip()}', 7)
         code, text = run(['git', 'push', '-u', 'origin', info['branch']], root)
@@ -63,9 +80,9 @@ def main():
             urls[repo] = existing.strip()
             continue
         command = ['gh', 'pr', 'create', '--head', info['branch'], '--title', title,
-                   '--body', pr_body(ticket, repo, plan['flow'], per_repo[repo], {})]
+                   '--body', pr_body(ticket, repo, plan['flow'], per_repo[repo], {}, args.footer)]
         # The PR targets the parent branch the working branch was created from, when we created it.
-        base = created_from.get(repo) or args.base or config.get('base_branch', {}).get(repo)
+        base = target(repo)
         if base:
             command += ['--base', base]
         code, text = run(command, root)
@@ -73,7 +90,8 @@ def main():
             raise UpgradeError(f'{repo}: PR creation failed: {text.strip()}', 7)
         urls[repo] = text.strip().splitlines()[-1]
     for repo, url in urls.items():
-        run(['gh', 'pr', 'edit', url, '--body', pr_body(ticket, repo, plan['flow'], per_repo[repo], urls)],
+        run(['gh', 'pr', 'edit', url, '--body', pr_body(ticket, repo, plan['flow'], per_repo[repo], urls,
+                                                        args.footer)],
             repo_dir(workspace, repo))
     save_json(out / 'pr-results.json', {'ticket': ticket, 'prs': urls})
     for repo, url in urls.items():

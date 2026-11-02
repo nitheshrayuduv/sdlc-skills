@@ -194,6 +194,45 @@ def restore_registries(ctx, backup):
             shutil.copy2(src, target)
 
 
+PRESERVED_FLOW_KEYS = ('workspace_root', 'branch_prefix', 'build', 'repo_overrides', 'base_branch')
+
+
+def flow_config_path(ctx):
+    return ctx.repo / '.specify' / 'extensions' / EXT_ID / 'config' / 'vuln-flows.json'
+
+
+def merge_flow_settings(fresh, saved):
+    """Keep the project's own flow settings; take everything else (repo chains, handoff) from the new release."""
+    merged = dict(fresh)
+    for key in PRESERVED_FLOW_KEYS:
+        if key not in saved:
+            continue
+        if isinstance(saved[key], dict) and isinstance(fresh.get(key), dict):
+            merged[key] = {**fresh[key], **saved[key]}
+        else:
+            merged[key] = saved[key]
+    return merged
+
+
+def read_flow_settings(ctx):
+    path = flow_config_path(ctx)
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding='utf-8'))
+    except ValueError:
+        return None
+
+
+def restore_flow_settings(ctx, saved):
+    path = flow_config_path(ctx)
+    if saved is None or ctx.dry or not path.is_file():
+        return
+    merged = merge_flow_settings(json.loads(path.read_text(encoding='utf-8')), saved)
+    path.write_text(json.dumps(merged, indent=2) + '\n', encoding='utf-8')
+    ctx.log('kept this project\'s flow settings in ' + str(path) + ' (' + ', '.join(PRESERVED_FLOW_KEYS) + ')')
+
+
 def bootstrap_config(ctx, ext_dir):
     """Copy the template to the project config only if absent; apply --profile and --set."""
     cfg_dir = ctx.repo / '.specify' / 'extensions' / EXT_ID
@@ -250,6 +289,7 @@ def cmd_install(ctx, specify, update=False):
             verify_lock(ext_src)
             ctx.log('vendored skill lock verified (before)')
         backup = backup_registries(ctx)
+        saved_flow = read_flow_settings(ctx) if update else None
         try:
             ext_cmd = [specify, 'extension', 'add'] + ([str(ext_src), '--dev'] if ext_src else [EXT_ID])
             preset_cmd = [specify, 'preset', 'add'] + (['--dev', str(preset_src)] if preset_src else [PRESET_ID])
@@ -265,6 +305,7 @@ def cmd_install(ctx, specify, update=False):
             ctx.run(preset_cmd + ['--priority', str(ctx.args.priority)])
             if ctx.args.inject_failure == 'after-extension':
                 raise InstallError('injected failure after extension add')
+            restore_flow_settings(ctx, saved_flow)
             bootstrap_config(ctx, ext_src)
             installed_ext = ctx.repo / '.specify' / 'extensions' / EXT_ID
             if not ctx.dry and installed_ext.is_dir():

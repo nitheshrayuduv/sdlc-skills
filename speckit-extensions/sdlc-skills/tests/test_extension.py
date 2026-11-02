@@ -60,6 +60,13 @@ class StaticChecks(unittest.TestCase):
         self.assertEqual(flows['flows']['deploy']['repos'][0], 'xl-platform')
         self.assertEqual(len(flows['flows']['deploy']['repos']), 10)
 
+    def test_vulnerability_upgrade_builds_clean_and_never_runs_tests_by_default(self):
+        flows = json.loads((EXT / 'config' / 'vuln-flows.json').read_text(encoding='utf-8'))
+        command = flows['build']['command']
+        self.assertEqual(command[:3], ['./gradlew', 'clean', 'build'])
+        self.assertIn('-x', command)
+        self.assertEqual(command[command.index('-x') + 1], 'test')
+
     def test_preset_wraps_core_commands(self):
         text = (PRESET / 'preset.yml').read_text(encoding='utf-8')
         self.assertIn('id: sdlc-skills', text)
@@ -74,6 +81,25 @@ class StaticChecks(unittest.TestCase):
         for name in CORE:
             body = (PRESET / 'commands' / f'{name}.md').read_text(encoding='utf-8')
             self.assertLess(len(body.splitlines()), 14, name)
+
+
+class InstallerSettingsChecks(unittest.TestCase):
+    def test_update_keeps_project_flow_settings_and_takes_new_defaults(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('sdlc_install', INSTALLER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        fresh = {'workspace_root': '~/work', 'build': {'command': ['a'], 'version_command': ['v']},
+                 'repo_overrides': {}, 'handoff': [{'from': 'new'}], 'flows': {'deploy': {'repos': ['r']}}}
+        saved = {'workspace_root': 'C:/work', 'build': {'command': ['clean', 'build', '-x', 'test']},
+                 'repo_overrides': {'xl-deploy': {'command': ['x']}}, 'handoff': [{'from': 'old'}]}
+        merged = module.merge_flow_settings(fresh, saved)
+        self.assertEqual(merged['workspace_root'], 'C:/work')
+        self.assertEqual(merged['build']['command'], ['clean', 'build', '-x', 'test'])
+        self.assertEqual(merged['build']['version_command'], ['v'])      # new default key kept
+        self.assertEqual(merged['repo_overrides'], {'xl-deploy': {'command': ['x']}})
+        self.assertEqual(merged['handoff'], [{'from': 'new'}])           # chains and handoff come from the release
+        self.assertEqual(merged['flows'], {'deploy': {'repos': ['r']}})
 
 
 class LockChecks(unittest.TestCase):

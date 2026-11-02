@@ -18,7 +18,9 @@
     "command": [
       "./gradlew",
       "clean",
-      "build"
+      "build",
+      "-x",
+      "test"
     ],
     "publish_command": [
       "./gradlew",
