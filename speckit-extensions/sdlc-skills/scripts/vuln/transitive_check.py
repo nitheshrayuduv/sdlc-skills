@@ -7,8 +7,8 @@ chooses.
 """
 import argparse
 
-from common import (flow_repos, load_config, load_json, main_wrapper, repo_dir, run, save_json,
-                    version_pattern)
+from common import (flow_repos, load_config, load_json, main_wrapper, repo_dir, resolve_workspace, run,
+                    save_json, version_pattern)
 from build_chain import resolve
 from resolve_owner import markdown
 
@@ -22,7 +22,7 @@ def main():
     args = parser.parse_args()
     config = load_config(args.config)
     data = load_json(args.changes)
-    workspace = args.workspace or config['workspace_root']
+    workspace = resolve_workspace(config, args.workspace)
     template = config['transitive']['command']
     timeout = config['build'].get('timeout_seconds')
     for row in data['dependencies']:

@@ -16,8 +16,8 @@ import time
 
 from pathlib import Path
 
-from common import (UpgradeError, flow_repos, load_config, load_json, main_wrapper, redact, repo_dir, run,
-                    save_json, vuln_dir)
+from common import (UpgradeError, flow_repos, load_config, load_json, main_wrapper, redact, repo_dir,
+                    resolve_workspace, run, save_json, vuln_dir)
 
 
 def resolve(command, root):
@@ -91,6 +91,40 @@ def recover_interrupted_handoff(backup_path):
         restored.append(item['path'])
     path.unlink()
     return restored
+
+
+def property_value(text, key):
+    pattern = re.compile(r'^\s*' + re.escape(key) + r'\s*[=:]\s*["\']?([^\s"\']+)')
+    for line in text.splitlines():
+        match = pattern.match(line)
+        if match:
+            return match.group(1)
+    return None
+
+
+def hand_edited_pins(repos, config, workspace):
+    """Hand-over keys whose value on disk differs from the committed one.
+
+    The chain sets these keys itself and restores what it found. A key already changed by hand would
+    be "restored" to the hand edit, not to the committed release pin, so the chain refuses to start.
+    """
+    problems = []
+    for rule in config.get('handoff', []):
+        for target in rule['to']:
+            if target['repo'] not in repos:
+                continue
+            root = repo_dir(workspace, target['repo'])
+            path = root / target['file']
+            if not path.is_file():
+                continue
+            code, committed_text = run(['git', 'show', f"HEAD:{target['file']}"], root)
+            if code:
+                continue
+            committed = property_value(committed_text, target['key'])
+            current = property_value(path.read_bytes().decode('utf-8', 'replace'), target['key'])
+            if committed and current and committed != current:
+                problems.append(f"{target['repo']}/{target['file']}: {target['key']} is {current}, committed {committed}")
+    return sorted(set(problems))
 
 
 def read_property(path, key):
@@ -218,7 +252,7 @@ def main():
     parser.add_argument('--config')
     args = parser.parse_args()
     config = load_config(args.config)
-    workspace = args.workspace or config['workspace_root']
+    workspace = resolve_workspace(config, args.workspace)
     repos = flow_repos(config, args.flow)
     out = vuln_dir(args.feature_dir)
     skipped, scope_notes, done_before = [], [], []
@@ -241,6 +275,12 @@ def main():
         cut = repos.index(args.from_repo)
         done_before, repos = repos[:cut], repos[cut:]
         print(f"resuming at {args.from_repo}; assuming already built and published: {', '.join(done_before) or 'none'}")
+    if not args.dry_run:
+        edited = hand_edited_pins(repos, config, workspace)
+        if edited:
+            raise UpgradeError('These version pins were changed by hand; the chain sets them itself and must start '
+                               'from the committed values. Revert them (git checkout -- <file>) and run again:\n  '
+                               + '\n  '.join(edited), 2)
     publish = bool(config['flows'][args.flow].get('publish'))
     timeout = config['build'].get('timeout_seconds')
     results, notes, snapshots, failed = [], [], [], None

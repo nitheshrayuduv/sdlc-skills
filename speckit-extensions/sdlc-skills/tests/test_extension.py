@@ -69,7 +69,8 @@ class StaticChecks(unittest.TestCase):
 
     def test_vuln_intake_always_asks_for_the_parent_branch_and_names_the_feature_folder(self):
         text = (EXT / 'commands' / 'speckit.sdlc-skills.vuln-intake.md').read_text(encoding='utf-8')
-        self.assertIn('4. **Parent branch**', text)
+        self.assertIn('4. **Base branch**', text)
+        self.assertIn('created from', text)
         self.assertIn('Always ask', text)
         self.assertIn('--base PARENT', text)
         self.assertIn('specs/NNN-vuln-upgrade-', text)

@@ -425,6 +425,37 @@ class FlowTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('k 1.0.0 -> seventeen', result.stdout)
 
+    def test_chain_refuses_to_start_when_a_handoff_pin_was_edited_by_hand(self):
+        conf = self.ws / 'service-a' / 'gradle' / 'dependencies.conf'
+        conf.parent.mkdir(exist_ok=True)
+        conf.write_text('        xlPlatformVersion="25.3.10-1025.1600"\n')
+        git(self.ws / 'service-a', 'add', '-A')
+        git(self.ws / 'service-a', 'commit', '-qm', 'pins')
+        conf.write_text('        xlPlatformVersion="25.3.10-SNAPSHOT"\n')
+        config = json.loads(self.config.read_text())
+        config['handoff'] = [{'from': 'xl-platform', 'version_source': 'gradle',
+                              'to': [{'repo': 'service-a', 'file': 'gradle/dependencies.conf', 'key': 'xlPlatformVersion'}]}]
+        self.config.write_text(json.dumps(config))
+        result = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                 '--workspace', self.ws)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('changed by hand', result.stderr)
+        self.assertIn('xlPlatformVersion is 25.3.10-SNAPSHOT, committed 25.3.10-1025.1600', result.stderr)
+
+    def test_workspace_is_found_from_the_platform_repo_when_not_configured(self):
+        import common
+        config = {'workspace_root': str(self.ws / 'nowhere'),
+                  'flows': {'deploy': {'repos': ['xl-platform', 'service-a']}}}
+        previous = os.getcwd()
+        try:
+            os.chdir(self.ws / 'xl-platform')
+            self.assertEqual(Path(common.resolve_workspace(config)).resolve(), self.ws.resolve())
+        finally:
+            os.chdir(previous)
+        self.assertEqual(common.resolve_workspace(config, 'explicit'), 'explicit')
+        config['workspace_root'] = str(self.ws)
+        self.assertEqual(common.resolve_workspace(config), str(self.ws))
+
     def test_transitive_check_marks_only_not_found(self):
         findings = json.loads(self.findings.read_text())
         findings['findings'].append({'dependency': 'com.rabbitmq:amqp-client', 'vulnerable_version': '5.35.0',

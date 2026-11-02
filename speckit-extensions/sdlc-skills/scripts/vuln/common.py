@@ -45,6 +45,27 @@ def flow_repos(config, flow):
     return list(config['flows'][flow]['repos'])
 
 
+def resolve_workspace(config, explicit=None):
+    """Where the flow's repos are checked out, side by side.
+
+    --workspace wins. Otherwise workspace_root, when it holds the repos. Otherwise the folder above
+    the project these scripts run in (the current folder, or the project the extension is installed
+    in) when that project is itself a repo of a flow, for example xl-platform. So a fresh install
+    finds its sibling repos without editing the config.
+    """
+    if explicit:
+        return explicit
+    configured = Path(config['workspace_root']).expanduser()
+    names = {repo for flow in config.get('flows', {}).values() for repo in flow.get('repos', [])}
+    if any((configured / name).is_dir() for name in names):
+        return str(configured)
+    installed_in = Path(__file__).resolve().parents[5] if len(Path(__file__).resolve().parents) > 5 else None
+    for project in (Path.cwd(), installed_in):
+        if project is not None and project.name in names and project.parent.is_dir():
+            return str(project.parent)
+    return str(configured)
+
+
 def repo_dir(workspace, name):
     path = Path(workspace).expanduser().resolve() / name
     if not path.is_dir():

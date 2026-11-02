@@ -6,8 +6,8 @@ again with --base (or --base-for REPO=BRANCH for a repo with a different parent)
 """
 import argparse
 
-from common import (UpgradeError, flow_repos, load_config, load_intake, load_json, main_wrapper, repo_dir, run,
-                    save_json, vuln_dir)
+from common import (UpgradeError, flow_repos, load_config, load_intake, load_json, main_wrapper, repo_dir,
+                    resolve_workspace, run, save_json, vuln_dir)
 
 
 def ref_exists(root, ref):
@@ -54,7 +54,7 @@ def main():
         raise UpgradeError('Flow and branch are required. Run intake.py first or pass --flow and --branch.', 2)
     overrides = {**config.get('base_branch', {}), **intake.get('base_for', {}),
                  **dict(item.split('=', 1) for item in args.base_for)}
-    workspace = args.workspace or config['workspace_root']
+    workspace = resolve_workspace(config, args.workspace)
     states = {}
     for repo in flow_repos(config, flow):
         root = repo_dir(workspace, repo)

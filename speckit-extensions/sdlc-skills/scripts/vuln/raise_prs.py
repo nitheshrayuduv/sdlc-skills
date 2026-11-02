@@ -2,8 +2,8 @@
 """Push the branches and open one PR per changed repo, only if every build passed."""
 import argparse
 
-from common import (UpgradeError, load_config, load_intake, load_json, main_wrapper, repo_dir, run, save_json,
-                    vuln_dir)
+from common import (UpgradeError, load_config, load_intake, load_json, main_wrapper, repo_dir,
+                    resolve_workspace, run, save_json, vuln_dir)
 
 
 def pr_body(ticket, repo, flow, changes, siblings, footer=None):
@@ -42,7 +42,7 @@ def main():
     branches = load_json(out / 'branches.json') if (out / 'branches.json').is_file() else {}
     created_from = branches.get('bases', {})
     intake = load_intake(out)
-    ticket, workspace = plan['ticket'], args.workspace or config['workspace_root']
+    ticket, workspace = plan['ticket'], resolve_workspace(config, args.workspace)
     per_repo = {}
     for change in plan['changes']:
         per_repo.setdefault(change['repo'], []).append(change)

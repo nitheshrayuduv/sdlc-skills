@@ -6,8 +6,8 @@ import os
 import re
 from pathlib import Path
 
-from common import (SKIP_DIRS, VERSION, UpgradeError, flow_repos, load_config, load_json,
-                    main_wrapper, repo_dir, save_json, version_pattern)
+from common import (SKIP_DIRS, UpgradeError, VERSION, flow_repos, load_config, load_json, main_wrapper,
+                    repo_dir, resolve_workspace, save_json, version_pattern)
 
 MAX_BYTES = 2_000_000
 PROPERTY = re.compile(r'^\s*([\w.\-]+)\s*[=:]\s*["\']?(' + VERSION + r')["\']?\s*(?:#.*)?$')
@@ -86,7 +86,7 @@ def main():
     parser.add_argument('--config')
     args = parser.parse_args()
     config = load_config(args.config)
-    workspace = args.workspace or config['workspace_root']
+    workspace = resolve_workspace(config, args.workspace)
     findings = [f for f in load_json(args.findings)['findings'] if f['status'] == 'ok']
     if not findings:
         raise UpgradeError('No confirmed findings to search for. Confirm the findings first.', 2)

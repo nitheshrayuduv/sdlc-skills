@@ -4,8 +4,8 @@ import argparse
 import difflib
 from pathlib import Path
 
-from common import (UpgradeError, load_config, load_intake, load_json, main_wrapper, repo_dir, run,
-                    save_json, version_pattern)
+from common import (UpgradeError, load_config, load_intake, load_json, main_wrapper, repo_dir,
+                    resolve_workspace, run, save_json, version_pattern)
 
 
 def edit(path, changes, dry_run):
@@ -37,7 +37,7 @@ def main():
     config = load_config(args.config)
     changes_path = Path(args.changes)
     data = load_json(changes_path)
-    workspace = args.workspace or config['workspace_root']
+    workspace = resolve_workspace(config, args.workspace)
     branch = args.branch or load_intake(changes_path.parent).get('branch') or config['branch_prefix'] + data['ticket']
     by_repo = {}
     for change in data['changes']:
