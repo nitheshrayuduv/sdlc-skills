@@ -137,7 +137,7 @@ $env:AGILITY_TOKEN = "<your Agility token>"
 $env:AGILITY_URL   = "https://www7.v1host.com/Instance"
 ```
 
-4. Edit `.specify/extensions/sdlc-skills/config/vuln-flows.json`: `workspace_root`, the repo order per flow, build commands, and `handoff.to` (the property names that carry a published version into later repos).
+4. Edit `.specify/extensions/sdlc-skills/config/vuln-flows.json`: `workspace_root`, the repo order per flow, build commands, and check `handoff`: it already maps each repo's published version into the later repos' `gradle/dependencies.conf` keys (`xlPlatformVersion`, `centralConfigurationVersion`, `deployTaskEngineVersion`, `xlDeployVersion`). Repos build strictly one at a time in flow order.
 
 ### Run it
 

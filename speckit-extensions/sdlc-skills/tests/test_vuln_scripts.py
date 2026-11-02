@@ -1,5 +1,6 @@
 """Standard-library tests for the vulnerability upgrade scripts. Run: python -m unittest discover tests"""
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -19,7 +20,10 @@ TICKET_TEXT = ('<p>jackson: com.fasterxml.jackson.core:jackson-databind 2.13.0 -
 
 
 def script(name, *args, cwd=None):
-    return subprocess.run([PY, '-B', str(SCRIPTS / name), *map(str, args)], capture_output=True, text=True, cwd=cwd)
+    # Never let a developer's real Agility credentials reach a test run.
+    env = {k: v for k, v in os.environ.items() if not k.startswith('AGILITY_')}
+    return subprocess.run([PY, '-B', str(SCRIPTS / name), *map(str, args)], capture_output=True, text=True, cwd=cwd,
+                          env=env)
 
 
 def git(repo, *args):
@@ -189,6 +193,150 @@ class FlowTests(unittest.TestCase):
         self.assertIn('platformVersion 1.0.0 -> 9.9.9', result.stdout)
         self.assertIn('missingKey not found', result.stdout)
         self.assertEqual((self.ws / 'service-a' / 'gradle.properties').read_text(), 'platformVersion=1.0.0\n')
+
+    def test_handoff_reads_version_from_gradle_and_rewrites_dependencies_conf(self):
+        conf = '''versions {
+        xlPlatformVersion="25.3.10-1025.1600"
+        centralConfigurationVersion="25.3.10-1025.1600"
+}
+'''
+        for repo in ('service-a', 'service-b'):
+            (self.ws / repo / 'gradle').mkdir(exist_ok=True)
+            (self.ws / repo / 'gradle' / 'dependencies.conf').write_text(conf)
+        stub = 'print("version: 7.7.7")'
+        code = ('import sys; t = open("gradle/dependencies.conf").read()\n'
+                'ok = "xlPlatformVersion=\\"7.7.7\\"" in t and "centralConfigurationVersion=\\"7.7.7\\"" in t\n'
+                'sys.exit(0 if ok else 1)')
+        check = [PY, '-c', code]
+        config = json.loads(self.config.read_text())
+        config['build']['version_command'] = [PY, '-c', stub]
+        config['repo_overrides'] = {'service-b': {'command': check}}
+        config['flows']['deploy']['publish'] = True
+        dep = 'gradle/dependencies.conf'
+        config['handoff'] = [
+            {'from': 'xl-platform', 'version_source': 'gradle',
+             'to': [{'repo': 'service-a', 'file': dep, 'key': 'xlPlatformVersion'},
+                    {'repo': 'service-b', 'file': dep, 'key': 'xlPlatformVersion'}]},
+            {'from': 'service-a', 'version_source': 'gradle',
+             'to': [{'repo': 'service-b', 'file': dep, 'key': 'centralConfigurationVersion'}]}]
+        self.config.write_text(json.dumps(config))
+        result = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                 '--workspace', self.ws)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('xlPlatformVersion 25.3.10-1025.1600 -> 7.7.7', result.stdout)
+        # both keys in the same file are put back exactly, quotes included
+        for repo in ('service-a', 'service-b'):
+            self.assertEqual((self.ws / repo / 'gradle' / 'dependencies.conf').read_text(), conf)
+
+    def test_handoff_without_a_gradle_version_is_reported_not_guessed(self):
+        config = json.loads(self.config.read_text())
+        config['build']['version_command'] = [PY, '-c', 'print("version: unspecified")']
+        config['flows']['deploy']['publish'] = True
+        config['handoff'] = [{'from': 'xl-platform', 'version_source': 'gradle',
+                              'to': [{'repo': 'service-a', 'file': 'gradle.properties', 'key': 'unrelated'}]}]
+        self.config.write_text(json.dumps(config))
+        result = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                 '--workspace', self.ws)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('could not read its version from Gradle', result.stdout)
+        self.assertEqual((self.ws / 'service-a' / 'gradle.properties').read_text(), 'unrelated=2.13.0\n')
+
+    def changed_only(self, changed, order=None, rules=None, *extra):
+        """Dry-run the chain in --changed-only mode and return (result, build-results.json)."""
+        config = json.loads(self.config.read_text())
+        if order:
+            config['flows']['deploy']['repos'] = order
+        dep = 'gradle/dependencies.conf'
+        config['handoff'] = [{'from': frm, 'version_source': 'gradle',
+                              'to': [{'repo': r, 'file': dep, 'key': key} for r in to]}
+                             for frm, key, to in (rules or [])]
+        self.config.write_text(json.dumps(config))
+        changes = self.feature / 'vuln' / 'changes.json'
+        changes.write_text(json.dumps({'ticket': 'D-12345', 'flow': 'deploy',
+                                       'changes': [{'repo': r} for r in changed]}))
+        result = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                 '--workspace', self.ws, '--changed-only', '--dry-run', *extra)
+        out = self.feature / 'vuln' / 'build-results.json'
+        return result, (json.loads(out.read_text()) if out.is_file() else None)
+
+    def test_changed_only_skips_unchanged_upstream_repos(self):
+        rules = [('xl-platform', 'xlPlatformVersion', ['service-a', 'service-b']),
+                 ('service-a', 'serviceAVersion', ['service-b'])]
+        result, data = self.changed_only(['service-a'], rules=rules)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual([r['repo'] for r in data['results']], ['service-a', 'service-b'])
+        self.assertEqual(data['skipped'], ['xl-platform'])
+        self.assertTrue(data['changed_only'])
+
+    def test_changed_only_with_no_dependents_builds_just_the_changed_repo(self):
+        rules = [('xl-platform', 'xlPlatformVersion', ['service-a', 'service-b'])]
+        result, data = self.changed_only(['service-b'], rules=rules)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual([r['repo'] for r in data['results']], ['service-b'])
+        self.assertEqual(data['skipped'], ['xl-platform', 'service-a'])
+
+    def test_changed_only_follows_dependents_transitively(self):
+        rules = [('xl-platform', 'xlPlatformVersion', ['service-a']),
+                 ('service-a', 'serviceAVersion', ['service-b'])]
+        result, data = self.changed_only(['xl-platform'], rules=rules)
+        self.assertEqual([r['repo'] for r in data['results']], ['xl-platform', 'service-a', 'service-b'])
+        self.assertEqual(data['skipped'], [])
+
+    def test_changed_only_needs_changes(self):
+        result, _ = self.changed_only([], rules=[])
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('nothing to build', result.stderr)
+
+    def test_changed_only_warns_when_a_dependent_is_built_before_its_upstream(self):
+        rules = [('service-a', 'serviceAVersion', ['service-b'])]
+        result, data = self.changed_only(['service-a'], order=['service-b', 'service-a', 'xl-platform'], rules=rules)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual([r['repo'] for r in data['results']], ['service-b', 'service-a'])
+        self.assertTrue(any('service-b pins serviceAVersion' in w for w in data['warnings']))
+        self.assertIn('warning:', result.stdout)
+
+    def test_apply_and_handoff_keep_crlf_line_endings_byte_for_byte(self):
+        crlf_props = b'a=1\r\nlz4JavaVersion=1.11.1\r\nb=2\r\n'
+        crlf_conf = b'versions {\r\n        xlPlatformVersion="25.3.10-1025.1600"\r\n}\r\n'
+        (self.ws / 'service-a' / 'gradle').mkdir(exist_ok=True)
+        (self.ws / 'service-a' / 'gradle.properties').write_bytes(crlf_props)
+        (self.ws / 'service-b' / 'gradle').mkdir(exist_ok=True)
+        (self.ws / 'service-b' / 'gradle' / 'dependencies.conf').write_bytes(crlf_conf)
+        for repo in ('service-a', 'service-b'):
+            git(self.ws / repo, 'checkout', '-q', '-b', 'vuln/D-12345')
+        changes = self.feature / 'vuln' / 'changes.json'
+        changes.write_text(json.dumps({'ticket': 'D-12345', 'flow': 'deploy', 'changes': [
+            {'repo': 'service-a', 'file': 'gradle.properties', 'line': 2, 'key': 'lz4JavaVersion',
+             'old': '1.11.1', 'new': '1.11.4'}]}))
+        applied = self.run_script('apply_upgrade.py', '--changes', changes, '--workspace', self.ws,
+                                  '--branch', 'vuln/D-12345', '--allow-dirty',
+                                  '--out', self.feature / 'vuln' / 'applied.json')
+        self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
+        self.assertEqual((self.ws / 'service-a' / 'gradle.properties').read_bytes(),
+                         b'a=1\r\nlz4JavaVersion=1.11.4\r\nb=2\r\n')
+        config = json.loads(self.config.read_text())
+        config['build']['version_command'] = [PY, '-c', 'print("version: 7.7.7")']
+        config['flows']['deploy']['publish'] = True
+        config['handoff'] = [{'from': 'xl-platform', 'version_source': 'gradle',
+                              'to': [{'repo': 'service-b', 'file': 'gradle/dependencies.conf',
+                                      'key': 'xlPlatformVersion'}]}]
+        self.config.write_text(json.dumps(config))
+        built = self.run_script('build_chain.py', '--flow', 'deploy', '--feature-dir', self.feature,
+                                '--workspace', self.ws)
+        self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+        self.assertIn('xlPlatformVersion 25.3.10-1025.1600 -> 7.7.7', built.stdout)
+        self.assertEqual((self.ws / 'service-b' / 'gradle' / 'dependencies.conf').read_bytes(), crlf_conf)
+
+    def test_build_output_is_written_to_the_log_while_it_runs(self):
+        config = json.loads(self.config.read_text())
+        config['build']['command'] = [PY, '-c', 'print("> Task :compileScala"); print("done")']
+        self.config.write_text(json.dumps(config))
+        result = self.run_script('build_chain.py', '--flow', 'release', '--feature-dir', self.feature,
+                                 '--workspace', self.ws)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('build log:', result.stdout)
+        log = (self.feature / 'vuln' / 'build-xl-platform.log').read_text()
+        self.assertIn('> Task :compileScala', log)
 
     def test_transitive_check_marks_only_not_found(self):
         findings = json.loads(self.findings.read_text())

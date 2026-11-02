@@ -52,7 +52,8 @@ def main():
     base = args.base or intake.get('base')
     if not flow or not branch:
         raise UpgradeError('Flow and branch are required. Run intake.py first or pass --flow and --branch.', 2)
-    overrides = dict(item.split('=', 1) for item in args.base_for)
+    overrides = {**config.get('base_branch', {}), **intake.get('base_for', {}),
+                 **dict(item.split('=', 1) for item in args.base_for)}
     workspace = args.workspace or config['workspace_root']
     states = {}
     for repo in flow_repos(config, flow):

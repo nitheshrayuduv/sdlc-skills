@@ -9,7 +9,7 @@ from common import (UpgradeError, load_config, load_intake, load_json, main_wrap
 
 
 def edit(path, changes, dry_run):
-    raw = path.read_text(encoding='utf-8').splitlines(keepends=True)
+    raw = path.read_bytes().decode('utf-8').splitlines(keepends=True)  # bytes: keep CRLF as it is
     before = list(raw)
     for change in changes:
         index = change['line'] - 1
@@ -20,7 +20,7 @@ def edit(path, changes, dry_run):
         raw[index] = pattern.sub(change['new'], raw[index], count=1)
     diff = ''.join(difflib.unified_diff(before, raw, f'a/{path.name}', f'b/{path.name}'))
     if not dry_run:
-        path.write_text(''.join(raw), encoding='utf-8', newline='')
+        path.write_bytes(''.join(raw).encode('utf-8'))
     return diff
 
 

@@ -18,6 +18,8 @@ def main():
     parser.add_argument('--feature-dir', required=True)
     parser.add_argument('--branch', help='branch to work on (default: <branch_prefix><ticket>)')
     parser.add_argument('--base', help='parent branch to create the branch from when it does not exist')
+    parser.add_argument('--base-for', action='append', default=[], metavar='REPO=BRANCH',
+                        help='a different parent branch for one repo; remembered in intake.json')
     parser.add_argument('--config')
     args = parser.parse_args()
     config = load_config(args.config)
@@ -25,9 +27,14 @@ def main():
     ticket = args.ticket.strip().upper()
     if not TICKET.match(ticket):
         raise UpgradeError(f"'{args.ticket}' does not look like an Agility number such as D-12345 or S-12345.", 2)
+    base_for = dict(item.split('=', 1) for item in args.base_for)
+    unknown = [r for r in base_for if r not in repos]
+    if unknown:
+        raise UpgradeError(f"--base-for names repos outside the {args.flow} flow: {', '.join(unknown)}", 2)
     out = vuln_dir(args.feature_dir) / 'intake.json'
     save_json(out, {'flow': args.flow, 'ticket': ticket, 'repos': repos,
                     'branch': args.branch or config['branch_prefix'] + ticket, 'base': args.base,
+                    'base_for': base_for,
                     'publish': bool(config['flows'][args.flow].get('publish'))})
     print(out)
 

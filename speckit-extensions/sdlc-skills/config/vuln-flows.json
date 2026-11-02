@@ -3,22 +3,139 @@
   "workspace_root": "~/work",
   "branch_prefix": "vuln/",
   "platform_repo": "xl-platform",
-  "reference_paths": ["xl-reference"],
-  "version_files": ["dependencies.conf", "gradle.properties", "*.gradle", "*.gradle.kts", "*.properties", "*.conf"],
+  "reference_paths": [
+    "xl-reference"
+  ],
+  "version_files": [
+    "dependencies.conf",
+    "gradle.properties",
+    "*.gradle",
+    "*.gradle.kts",
+    "*.properties",
+    "*.conf"
+  ],
   "build": {
-    "command": ["./gradlew", "build"],
-    "publish_command": ["./gradlew", "publishToMavenLocal"],
-    "timeout_seconds": 3600
+    "command": [
+      "./gradlew",
+      "clean",
+      "build"
+    ],
+    "publish_command": [
+      "./gradlew",
+      "publishToMavenLocal"
+    ],
+    "timeout_seconds": 3600,
+    "version_command": [
+      "./gradlew",
+      "-q",
+      "properties"
+    ],
+    "version_timeout_seconds": 900
   },
   "transitive": {
-    "command": ["./gradlew", "dependencyInsight", "--dependency", "{dependency}", "--configuration", "runtimeClasspath"]
+    "command": [
+      "./gradlew",
+      "dependencyInsight",
+      "--dependency",
+      "{dependency}",
+      "--configuration",
+      "runtimeClasspath"
+    ]
   },
   "handoff": [
     {
       "from": "xl-platform",
-      "version_file": "gradle.properties",
-      "version_key": "version",
-      "to": []
+      "version_source": "gradle",
+      "to": [
+        {
+          "repo": "central-configuration",
+          "file": "gradle/dependencies.conf",
+          "key": "xlPlatformVersion"
+        },
+        {
+          "repo": "deploy-central-configuration",
+          "file": "gradle/dependencies.conf",
+          "key": "xlPlatformVersion"
+        },
+        {
+          "repo": "deploy-permission-service",
+          "file": "gradle/dependencies.conf",
+          "key": "xlPlatformVersion"
+        },
+        {
+          "repo": "deploy-task-engine",
+          "file": "gradle/dependencies.conf",
+          "key": "xlPlatformVersion"
+        },
+        {
+          "repo": "xl-deploy",
+          "file": "gradle/dependencies.conf",
+          "key": "xlPlatformVersion"
+        },
+        {
+          "repo": "xl-satellite",
+          "file": "gradle/dependencies.conf",
+          "key": "xlPlatformVersion"
+        },
+        {
+          "repo": "xld-stitch-core",
+          "file": "gradle/dependencies.conf",
+          "key": "xlPlatformVersion"
+        },
+        {
+          "repo": "deploy-cli",
+          "file": "gradle/dependencies.conf",
+          "key": "xlPlatformVersion"
+        }
+      ]
+    },
+    {
+      "from": "central-configuration",
+      "version_source": "gradle",
+      "to": [
+        {
+          "repo": "deploy-task-engine",
+          "file": "gradle/dependencies.conf",
+          "key": "centralConfigurationVersion"
+        },
+        {
+          "repo": "xl-deploy",
+          "file": "gradle/dependencies.conf",
+          "key": "centralConfigurationVersion"
+        }
+      ]
+    },
+    {
+      "from": "deploy-task-engine",
+      "version_source": "gradle",
+      "to": [
+        {
+          "repo": "xl-deploy",
+          "file": "gradle/dependencies.conf",
+          "key": "deployTaskEngineVersion"
+        },
+        {
+          "repo": "xl-satellite",
+          "file": "gradle/dependencies.conf",
+          "key": "deployTaskEngineVersion"
+        },
+        {
+          "repo": "deploy-cli",
+          "file": "gradle/dependencies.conf",
+          "key": "deployTaskEngineVersion"
+        }
+      ]
+    },
+    {
+      "from": "xl-deploy",
+      "version_source": "gradle",
+      "to": [
+        {
+          "repo": "deploy-cli",
+          "file": "gradle/dependencies.conf",
+          "key": "xlDeployVersion"
+        }
+      ]
     }
   ],
   "repo_overrides": {},
@@ -41,7 +158,10 @@
     },
     "release": {
       "publish": true,
-      "repos": ["xl-platform", "xl-release"]
+      "repos": [
+        "xl-platform",
+        "xl-release"
+      ]
     }
   }
 }
