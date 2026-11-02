@@ -8,6 +8,7 @@ Runs vendored, version-pinned skills at Spec Kit stages through a binding regist
 | `plan` | database-schema-designer | Detector `db_change` says yes |
 | `plan` | api-designer | Detector `api_change` says yes |
 | `tasks`, `implement` | playwright-expert | `[E2E]` task, or a matching test path |
+| `plan`, `tasks`, `implement.vuln-upgrade` | engineering-vulnerability-upgrade | Detector `agility_vuln_ticket` says yes, or a `[VULN]` task |
 
 ## Layout
 
@@ -16,6 +17,12 @@ Runs vendored, version-pinned skills at Spec Kit stages through a binding regist
 - `adapters/`, `detectors/`: glue between Spec Kit artifacts and each skill, and the yes/no/unknown applicability checks.
 - `skills/` and `skills.lock.yml`: unmodified vendored skills, pinned by upstream commit and SHA-256. Each keeps its MIT `LICENSE`.
 - `scripts/verify_lock.py`, `scripts/check_playwright_rules.py`.
+
+## Vulnerability upgrade from an Agility ticket
+
+Spec: [engineering-vulnerability-upgrade-spec.md](../../docs/specs/engineering-vulnerability-upgrade-spec.md). Run `speckit.sdlc-skills.vuln-intake` (asks flow, ticket, branch; reads the report; seeds `spec.md`). Then plan, tasks and implement run the `engineering-vulnerability-upgrade` bindings: locate and decide at plan, `[VULN]` tasks per repo, apply and build at implement. The `after_implement` hook `speckit.sdlc-skills.vuln-pr` raises one PR per changed repo, only after every build passed and you confirm.
+
+Set `AGILITY_TOKEN` and `AGILITY_URL` in your shell (never in a file). Edit `config/vuln-flows.json` for `workspace_root`, repo order, build commands and the version `handoff`. Scripts are in `scripts/vuln/` (Python 3.10+, standard library only) and are tested by `tests/test_vuln_scripts.py`.
 
 ## Audit trail
 
@@ -36,5 +43,5 @@ Copy the new upstream version in, update `commit` and `version` in the lock, run
 ## Tests
 
 ```bash
-python -m unittest speckit-extensions/sdlc-skills/tests/test_extension.py -v
+python -m unittest discover -s speckit-extensions/sdlc-skills/tests -v
 ```

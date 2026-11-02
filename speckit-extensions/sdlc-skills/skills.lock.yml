@@ -27,3 +27,9 @@ skills:
     license: MIT
     version: "1.1.0"
     sha256: b6293dfc5fa1e8101a412a5645aa5c2741c8c5b09f5516dae765a2fff3fd9386
+  - id: engineering-vulnerability-upgrade
+    source: skills/engineering-vulnerability-upgrade in this repository
+    commit: local
+    license: internal
+    version: "1.0.0"
+    sha256: 90e194d7b71da552f03128e1b4005ed26067a35d901142537f487e0bd9d2c321

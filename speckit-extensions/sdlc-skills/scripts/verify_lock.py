@@ -59,7 +59,7 @@ def main(argv=None):
         if not skill_dir.is_dir():
             bad.append(f"{entry['id']}: missing directory")
             continue
-        if not (skill_dir / 'LICENSE').is_file():
+        if entry.get('license') != 'internal' and not (skill_dir / 'LICENSE').is_file():
             bad.append(f"{entry['id']}: license notice missing")
         digest = skill_digest(skill_dir)
         if args.update:

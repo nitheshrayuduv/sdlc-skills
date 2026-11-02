@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "workspace_root": "~/work",
+  "branch_prefix": "vuln/",
+  "platform_repo": "xl-platform",
+  "reference_paths": ["xl-reference"],
+  "version_files": ["dependencies.conf", "gradle.properties", "*.gradle", "*.gradle.kts", "*.properties", "*.conf"],
+  "build": {
+    "command": ["./gradlew", "build"],
+    "publish_command": ["./gradlew", "publishToMavenLocal"],
+    "timeout_seconds": 3600
+  },
+  "transitive": {
+    "command": ["./gradlew", "dependencyInsight", "--dependency", "{dependency}", "--configuration", "runtimeClasspath"]
+  },
+  "handoff": [
+    {
+      "from": "xl-platform",
+      "version_file": "gradle.properties",
+      "version_key": "version",
+      "to": []
+    }
+  ],
+  "repo_overrides": {},
+  "base_branch": {},
+  "flows": {
+    "deploy": {
+      "publish": true,
+      "repos": [
+        "xl-platform",
+        "central-configuration",
+        "deploy-central-configuration",
+        "deploy-permission-service",
+        "xld-stitch-core",
+        "deploy-task-engine",
+        "xl-deploy",
+        "xl-satellite",
+        "overthere",
+        "deploy-cli"
+      ]
+    },
+    "release": {
+      "publish": true,
+      "repos": ["xl-platform", "xl-release"]
+    }
+  }
+}

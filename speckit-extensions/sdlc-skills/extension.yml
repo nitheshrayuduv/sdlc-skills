@@ -15,6 +15,12 @@ provides:
     - name: speckit.sdlc-skills.edge-case-audit
       file: commands/speckit.sdlc-skills.edge-case-audit.md
       description: Check every edge-case lens is answered or marked N/A
+    - name: speckit.sdlc-skills.vuln-intake
+      file: commands/speckit.sdlc-skills.vuln-intake.md
+      description: Ask for flow, Agility ticket and branch, then read the vulnerability report
+    - name: speckit.sdlc-skills.vuln-pr
+      file: commands/speckit.sdlc-skills.vuln-pr.md
+      description: Raise one PR per changed repo when every build passed
   config:
     - name: sdlc-skills-config.yml
       template: config/sdlc-skills-config.template.yml
@@ -26,8 +32,14 @@ hooks:
     optional: true
     prompt: Audit edge-case coverage?
     description: Edge-case coverage check
+  after_implement:
+    command: speckit.sdlc-skills.vuln-pr
+    optional: false
+    description: Raise vulnerability-upgrade PRs after a green build; skips when the feature has no vuln/intake.json
 tags:
   - skills
   - clarify
   - plan
   - testing
+  - security
+  - gradle

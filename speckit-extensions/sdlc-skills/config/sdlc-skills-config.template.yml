@@ -59,6 +59,30 @@ bindings:
       of:
         - { type: task_tag, tag: E2E }
         - { type: path_glob, globs: ["e2e/**/*.spec.ts", "tests/e2e/**/*.spec.ts"] }
+  - id: plan-vuln-upgrade
+    stage: plan
+    order: 30
+    skill: engineering-vulnerability-upgrade
+    enabled: true
+    locked: false
+    trigger: { type: detect, detector: agility_vuln_ticket, ask_if_unknown: true }
+  - id: tasks-vuln-upgrade
+    stage: tasks
+    skill: engineering-vulnerability-upgrade
+    enabled: true
+    locked: false
+    trigger: { type: detect, detector: agility_vuln_ticket }
+  - id: impl-vuln-upgrade
+    stage: implement.vuln-upgrade
+    skill: engineering-vulnerability-upgrade
+    enabled: true
+    locked: false
+    trigger:
+      type: any
+      of:
+        - { type: task_tag, tag: VULN }
+        - { type: path_glob, globs: ["**/dependencies.conf", "**/gradle.properties", "**/build.gradle"] }
+    settings: { confirm_before_pr: true, fail_on_build_error: true }
   # Example of a future binding; not shipped in v1
   # - id: impl-unit
   #   stage: implement.unit-test

@@ -16,7 +16,8 @@ from pathlib import Path
 EXT = Path(__file__).resolve().parent.parent
 PRESET = EXT.parent / 'org-sdlc'
 INSTALLER = EXT.parent.parent / 'installer' / 'install.py'
-SKILLS = ('grill-me', 'database-schema-designer', 'api-designer', 'playwright-expert')
+UPSTREAM = ('grill-me', 'database-schema-designer', 'api-designer', 'playwright-expert')
+SKILLS = UPSTREAM + ('engineering-vulnerability-upgrade',)
 CORE = ('speckit.clarify', 'speckit.plan', 'speckit.tasks', 'speckit.implement')
 
 
@@ -45,6 +46,20 @@ class StaticChecks(unittest.TestCase):
                              ('plan', 'api-designer'), ('implement.e2e-test', 'playwright-expert')):
             self.assertRegex(text, rf'stage:\s*{re.escape(stage)}\s*\n(?:.*\n)*?\s+skill:\s*{skill}')
 
+    def test_vulnerability_bindings_and_commands(self):
+        text = (EXT / 'config' / 'sdlc-skills-config.template.yml').read_text(encoding='utf-8')
+        for ident, stage in (('plan-vuln-upgrade', 'plan'), ('tasks-vuln-upgrade', 'tasks'),
+                             ('impl-vuln-upgrade', 'implement.vuln-upgrade')):
+            self.assertRegex(text, rf'id:\s*{ident}\s*\n\s+stage:\s*{re.escape(stage)}')
+        manifest = (EXT / 'extension.yml').read_text(encoding='utf-8')
+        for cmd in ('vuln-intake', 'vuln-pr'):
+            self.assertIn(f'speckit.sdlc-skills.{cmd}', manifest)
+        self.assertRegex(manifest, r'after_implement:\s*\n\s+command:\s*speckit\.sdlc-skills\.vuln-pr')
+        flows = json.loads((EXT / 'config' / 'vuln-flows.json').read_text(encoding='utf-8'))
+        self.assertEqual(flows['flows']['release']['repos'], ['xl-platform', 'xl-release'])
+        self.assertEqual(flows['flows']['deploy']['repos'][0], 'xl-platform')
+        self.assertEqual(len(flows['flows']['deploy']['repos']), 10)
+
     def test_preset_wraps_core_commands(self):
         text = (PRESET / 'preset.yml').read_text(encoding='utf-8')
         self.assertIn('id: sdlc-skills', text)
@@ -72,9 +87,9 @@ class LockChecks(unittest.TestCase):
         text = (EXT / 'skills.lock.yml').read_text(encoding='utf-8')
         for skill in SKILLS:
             self.assertIn(f'id: {skill}', text)
-        self.assertEqual(len(re.findall(r'commit:\s*[0-9a-f]{40}', text)), 4)
-        self.assertEqual(len(re.findall(r'sha256:\s*[0-9a-f]{64}', text)), 4)
-        for skill in SKILLS:
+        self.assertEqual(len(re.findall(r'commit:\s*[0-9a-f]{40}', text)), len(UPSTREAM))
+        self.assertEqual(len(re.findall(r'sha256:\s*[0-9a-f]{64}', text)), len(SKILLS))
+        for skill in UPSTREAM:
             self.assertIn('MIT License', (EXT / 'skills' / skill / 'LICENSE').read_text(encoding='utf-8'))
 
     def test_tampered_skill_fails(self):
