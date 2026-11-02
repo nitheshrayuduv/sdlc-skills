@@ -67,6 +67,14 @@ class StaticChecks(unittest.TestCase):
         self.assertIn('-x', command)
         self.assertEqual(command[command.index('-x') + 1], 'test')
 
+    def test_vuln_intake_always_asks_for_the_parent_branch_and_names_the_feature_folder(self):
+        text = (EXT / 'commands' / 'speckit.sdlc-skills.vuln-intake.md').read_text(encoding='utf-8')
+        self.assertIn('4. **Parent branch**', text)
+        self.assertIn('Always ask', text)
+        self.assertIn('--base PARENT', text)
+        self.assertIn('specs/NNN-vuln-upgrade-', text)
+        self.assertIn('.specify/feature.json', text)
+
     def test_preset_wraps_core_commands(self):
         text = (PRESET / 'preset.yml').read_text(encoding='utf-8')
         self.assertIn('id: sdlc-skills', text)

@@ -143,7 +143,7 @@ $env:AGILITY_URL   = "https://www7.v1host.com/Instance"
 
 | Step | Command | What happens |
 | --- | --- | --- |
-| 1 | `/speckit-sdlc-skills-vuln-intake` | Asks flow, ticket number and branch (and the parent branch if the branch is missing). Reads the report, shows the findings table, asks you to confirm, seeds `spec.md` |
+| 1 | `/speckit-sdlc-skills-vuln-intake` | Asks flow, ticket number, branch and parent branch (suggested from the branch name, for example `26.3.x-maintenance`). Reads the report, shows the findings table, asks you to confirm, seeds `spec.md` |
 | 2 | `/speckit-specify`, `/speckit-clarify` | Normal stages on the seeded spec |
 | 3 | `/speckit-plan` | Finds where each vulnerable version is declared (`dependencies.conf`, `build.gradle`, property files, `xl-reference`), decides which repo changes, writes **Vulnerability Upgrade** in `plan.md` |
 | 4 | `/speckit-tasks` | One `[VULN]` task per changed repo, in build order |

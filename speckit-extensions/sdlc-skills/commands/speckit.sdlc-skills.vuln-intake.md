@@ -1,24 +1,36 @@
 ---
-description: Ask for flow, Agility ticket and branch, then read the vulnerability report
+description: Ask for flow, Agility ticket, branch and parent branch, then read the vulnerability report
 ---
 
 # Vulnerability intake
 
-Read `.specify/extensions/sdlc-skills/skills/engineering-vulnerability-upgrade/SKILL.md` and follow it. Resolve the current feature folder (`FEATURE`). Scripts are in `.specify/extensions/sdlc-skills/scripts/vuln/`; run them with `python`. Pass `--config` only if the project has its own copy of the flow config. The default is `.specify/extensions/sdlc-skills/config/vuln-flows.json`.
+Read `.specify/extensions/sdlc-skills/skills/engineering-vulnerability-upgrade/SKILL.md` and follow it. Scripts are in `.specify/extensions/sdlc-skills/scripts/vuln/`; run them with `python`. Pass `--config` only if the project has its own copy of the flow config. The default is `.specify/extensions/sdlc-skills/config/vuln-flows.json`.
 
-Ask these in order and wait for each answer. Skip a question only if the user already gave the answer in this request.
+## Feature folder
+
+Resolve the feature folder (`FEATURE`) the way Spec Kit does, so later stages use the same one:
+
+1. If `.specify/feature.json` exists, use its `feature_directory`.
+2. Otherwise create `specs/NNN-vuln-upgrade-<ticket in lower case>`, where `NNN` is the next free three-digit number under `specs/` (`001` when there is none), and write `{"feature_directory": "<that path>"}` to `.specify/feature.json`.
+
+Do not invent another name such as `specs/vuln`.
+
+## Ask these, in order
+
+Wait for each answer. Skip a question only if the user already gave the answer in this request.
 
 1. **Flow:** deploy or release.
 2. **Agility ticket number.**
 3. **Branch** to work on (default `vuln/<ticket>`).
+4. **Parent branch**: the base branch the working branch is created from in every repo where it does not exist yet, and the branch the PRs target. Always ask, even if the branch already exists in some repos. Suggest a default from the branch name when it carries a version line, for example `S-139218-26.3.x` suggests `26.3.x-maintenance`; otherwise suggest nothing. Also ask whether any repo needs a different parent (for example a repo with no maintenance branch for that line).
 
-Then:
+## Then
 
-1. Run `intake.py --flow F --ticket T --branch B --feature-dir FEATURE`.
-2. Run `prepare_branches.py --check-only --feature-dir FEATURE`. It prints `MISSING: ...` for repos without the branch. If any are missing, ask for the **parent branch**, and ask whether any repo needs a different one. Run `intake.py` again with `--base PARENT` so the answer is recorded. Do not create branches here.
+1. Run `intake.py --flow F --ticket T --branch B --base PARENT --feature-dir FEATURE`, adding `--base-for REPO=BRANCH` for each repo with a different parent.
+2. Run `prepare_branches.py --check-only --feature-dir FEATURE`. It prints which repos already have the branch and `MISSING: ...` for the rest. For each missing repo, check that the parent branch exists there (`git -C <repo> branch -r --list origin/PARENT`); if it does not, tell the user which repos lack it and ask for a parent for those, then run `intake.py` again with `--base-for`. Do not create branches here.
 3. Run `agility_fetch.py --ticket T --out FEATURE/vuln/findings.json`. It needs `AGILITY_TOKEN` and `AGILITY_URL` in the environment. If they are missing, tell the user to set them and stop; never ask for the token in chat.
 4. Show the findings table (dependency, vulnerable, fixed, severity, images, status). Say which rows are out of scope (OS packages) and which fix version was chosen where a package had several. If the ticket header names a different flow from the one chosen, say so.
 5. Ask the user to confirm the table. For each `needs-confirmation` row, fix it in `findings.json` with the user's answer or remove it.
-6. Seed `spec.md` with a short problem statement, the ticket number and the confirmed table, so the normal specify, clarify, plan and tasks stages have a real spec.
+6. Seed `FEATURE/spec.md` with a short problem statement, the ticket number, the branch and parent branch, and the confirmed table, so the normal specify, clarify, plan and tasks stages have a real spec.
 
 Make no file changes in any repo. Stop after step 6 and tell the user the next step is the normal plan stage. The `plan-vuln-upgrade` binding then runs because `FEATURE/vuln/intake.json` exists.
