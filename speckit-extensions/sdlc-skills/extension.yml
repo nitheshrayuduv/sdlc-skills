@@ -1,0 +1,33 @@
+schema_version: "1.0"
+extension:
+  id: sdlc-skills
+  name: SDLC Skill Bindings
+  version: "1.0.0"
+  description: Runs vendored, version-pinned skills at Spec Kit stages through a binding registry.
+  license: MIT
+requires:
+  speckit_version: ">=1.2.0,<2.0.0"
+provides:
+  commands:
+    - name: speckit.sdlc-skills.run
+      file: commands/speckit.sdlc-skills.run.md
+      description: Apply the skill bindings for a stage
+    - name: speckit.sdlc-skills.edge-case-audit
+      file: commands/speckit.sdlc-skills.edge-case-audit.md
+      description: Check every edge-case lens is answered or marked N/A
+  config:
+    - name: sdlc-skills-config.yml
+      template: config/sdlc-skills-config.template.yml
+      description: Binding registry and settings
+      required: true
+hooks:
+  after_clarify:
+    command: speckit.sdlc-skills.edge-case-audit
+    optional: true
+    prompt: Audit edge-case coverage?
+    description: Edge-case coverage check
+tags:
+  - skills
+  - clarify
+  - plan
+  - testing
