@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "workspace_root": "~/work",
+  "branch_prefix": "vuln/",
+  "platform_repo": "",
+  "reference_paths": [],
+  "version_files": [
+    "pom.xml",
+    "*.gradle",
+    "*.gradle.kts",
+    "gradle.properties",
+    "*.properties",
+    "*.toml",
+    "*.conf",
+    "build.sbt",
+    "package.json"
+  ],
+  "build": {
+    "tool": "gradle",
+    "timeout_seconds": 3600,
+    "version_timeout_seconds": 900
+  },
+  "handoff": [
+    {
+      "from": "platform",
+      "version_source": "build",
+      "to": [
+        {
+          "repo": "service-a",
+          "file": "gradle.properties",
+          "key": "platformVersion"
+        },
+        {
+          "repo": "service-b",
+          "file": "pom.xml",
+          "key": "platform.version"
+        }
+      ]
+    },
+    {
+      "from": "service-a",
+      "version_source": "build",
+      "to": [
+        {
+          "repo": "service-b",
+          "file": "pom.xml",
+          "key": "service-a.version"
+        }
+      ]
+    }
+  ],
+  "repo_overrides": {
+    "service-b": {
+      "tool": "maven"
+    }
+  },
+  "base_branch": {},
+  "flows": {
+    "example": {
+      "publish": true,
+      "repos": [
+        "platform",
+        "service-a",
+        "service-b"
+      ]
+    }
+  }
+}
