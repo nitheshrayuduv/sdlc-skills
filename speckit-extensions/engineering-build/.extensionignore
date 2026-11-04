@@ -1,0 +1,6 @@
+# Source-only folders. The preset is installed separately; tests and docs stay in the source repository.
+preset/
+tests/
+docs/
+__pycache__/
+*.pyc

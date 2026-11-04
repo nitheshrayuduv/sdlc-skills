@@ -1,5 +1,7 @@
 # Spec Kit Extension Spec: Skill-Driven Clarify, Plan and Test Phases
 
+> **Implementation note.** In this repository the extension ships as `engineering-build` (`speckit-extensions/engineering-build/`) and the preset as `engineering-build-preset` (its `preset/` folder). Commands are `speckit.engineering-build.<name>`, the registry is `engineering-build-config.yml`, and skills live in the top-level `skills/` folder, copied in by the installer. Names below are the original design names.
+
 Oct 28, 2026 · @Ramesh G
 
 ## 1. Overview and goals

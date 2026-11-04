@@ -1,0 +1,14 @@
+interface:
+  display_name: Engineering Build
+  short_description: Design, plan and build Spec Kit features with companion skills
+  default_prompt: Use $engineering-build throughout this Spec Kit feature, keeping
+    the spec, plan, tasks and implementation evidence linked.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Install the sdlc-skills extension and org-sdlc preset into Spec Kit repositories.
+"""Install the engineering-build extension, its preset and its skills into Spec Kit repositories.
 
-  python installer/install.py install   --repo PATH [--source local|catalog|url|bundle] ...
+  python installer/install.py install   --repo PATH [--source local|catalog|url|bundle] [--agent-skills DIR] ...
   python installer/install.py update    --repo PATH
   python installer/install.py verify    --repo PATH [--json]
   python installer/install.py status    --repo PATH
   python installer/install.py uninstall --repo PATH
+  python installer/install.py package   [--output dist]
 
-It drives the `specify` CLI and never copies into Spec Kit's registries itself.
+Spec Kit itself is installed separately (`specify init`). This script stages the extension
+from speckit-extensions/engineering-build/ together with the skills its skills.lock.yml
+names (copied from the top-level skills/ folder), then drives the `specify` CLI to add the
+extension and the preset. It never copies into Spec Kit's registries itself.
 Standard library only. Exit codes: 0 success, 1 failure, 2 preflight failure, 3 integrity failure.
 """
 import argparse
@@ -23,13 +27,17 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-EXT_ID, PRESET_ID = 'sdlc-skills', 'org-sdlc'
+EXT_ID, PRESET_ID = 'engineering-build', 'engineering-build-preset'
+OLD_IDS = (('extension', 'engineering-plan'), ('extension', 'sdlc-skills'), ('preset', 'org-sdlc'))
 MIN_SPECIFY = (1, 2, 0)
 MIN_PYTHON = (3, 8)
 CORE_COMMANDS = ('speckit.clarify', 'speckit.plan', 'speckit.tasks', 'speckit.implement')
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOCAL_EXT = REPO_ROOT / 'speckit-extensions' / EXT_ID
-LOCAL_PRESET = REPO_ROOT / 'speckit-extensions' / PRESET_ID
+LOCAL_PRESET = LOCAL_EXT / 'preset'
+LOCAL_SKILLS = REPO_ROOT / 'skills'
+CONFIG_NAME = EXT_ID + '-config.yml'
+STAGE_IGNORE = ('preset', 'tests', 'docs', '__pycache__', '*.pyc', '.extensionignore')
 OK, FAIL, PREFLIGHT, INTEGRITY = 0, 1, 2, 3
 
 
@@ -52,7 +60,7 @@ class Ctx:
         if not self.args.json:
             print(msg)
         if not self.dry and (self.repo / '.specify').is_dir():
-            with open(self.repo / '.specify' / 'sdlc-skills-install.log', 'a', encoding='utf-8') as fh:
+            with open(self.repo / '.specify' / (EXT_ID + '-install.log'), 'a', encoding='utf-8') as fh:
                 fh.write(f'{datetime.datetime.now().isoformat(timespec="seconds")} {msg}\n')
 
     def run(self, cmd, mutate=True):
@@ -94,6 +102,10 @@ def preflight(ctx, specify):
     ver = parse_version(out.stdout + out.stderr)
     if ver is None or ver < MIN_SPECIFY:
         raise InstallError(f'specify {".".join(map(str, MIN_SPECIFY))}+ required, found {ver}', PREFLIGHT)
+    for kind, ident in OLD_IDS:
+        if installed(ctx, specify, kind, ident):
+            ctx.log(f'warning: older {kind} {ident!r} is installed; remove it so it does not run next to {EXT_ID} '
+                    f'(specify {kind} remove {ident})')
     state = git_state(ctx.repo)
     ctx.log(f'preflight ok: specify {".".join(map(str, ver))}, git tree {state}')
     if state == 'dirty':
@@ -113,9 +125,10 @@ def installed(ctx, specify, kind, ident):
     return any(isinstance(e, dict) and e.get('id') == ident for e in list_json(ctx, specify, kind))
 
 
-def verify_lock(ext_dir):
+def verify_lock(ext_dir, skills_dir=None):
     script = Path(ext_dir) / 'scripts' / 'verify_lock.py'
-    res = subprocess.run([sys.executable, '-B', str(script), '--ext', str(ext_dir)], capture_output=True, text=True)
+    cmd = [sys.executable, '-B', str(script), '--ext', str(ext_dir)] + (['--skills', str(skills_dir)] if skills_dir else [])
+    res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode:
         raise InstallError('vendored skill integrity check failed:\n' + res.stderr, INTEGRITY)
 
@@ -128,14 +141,42 @@ def sha256_file(path):
     return h.hexdigest()
 
 
+def locked_skill_ids(ext_dir):
+    text = (Path(ext_dir) / 'skills.lock.yml').read_text(encoding='utf-8')
+    return re.findall(r'^\s*-\s+id:\s*(\S+)', text, re.M)
+
+
+def stage_extension(ext_src, skills_src, dest):
+    """Copy the extension source plus every skill its lock names into dest, then verify the lock."""
+    ext_src, skills_src, dest = Path(ext_src), Path(skills_src), Path(dest)
+    if not (ext_src / 'extension.yml').is_file():
+        raise InstallError(f'no extension.yml in {ext_src}', PREFLIGHT)
+    verify_lock(ext_src, skills_src)
+    shutil.copytree(ext_src, dest, ignore=shutil.ignore_patterns(*STAGE_IGNORE))
+    for ident in locked_skill_ids(ext_src):
+        shutil.copytree(skills_src / ident, dest / 'skills' / ident, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+    verify_lock(dest)
+    return dest
+
+
+def source_paths(local_path=None):
+    """(extension, preset, skills) source folders in an sdlc-skills checkout."""
+    base = Path(local_path).resolve() if local_path else REPO_ROOT
+    ext = base / 'speckit-extensions' / EXT_ID
+    return ext, ext / 'preset', base / 'skills'
+
+
 def locate_sources(ctx, workdir):
-    """Return (extension source, preset source) for the chosen --source, as local dirs or catalog ids."""
+    """Return (extension dir, preset dir) for the chosen --source, or (None, None) for catalog ids.
+
+    A local source is staged into workdir first, so the installed extension carries its skills.
+    """
     a = ctx.args
     if a.source == 'local':
-        base = Path(a.local_path).resolve() if a.local_path else None
-        ext = (base / EXT_ID) if base else LOCAL_EXT
-        preset = (base / PRESET_ID) if base else LOCAL_PRESET
-        return ext, preset
+        ext, preset, skills = source_paths(a.local_path)
+        staged = stage_extension(ext, skills, Path(workdir) / EXT_ID)
+        ctx.log(f'staged {EXT_ID} with skills: {", ".join(locked_skill_ids(ext))}')
+        return staged, preset
     if a.source in ('url', 'bundle'):
         if a.source == 'url':
             if not a.url or not a.sha256:
@@ -164,7 +205,10 @@ def locate_sources(ctx, workdir):
         pfound = list(dest.rglob('preset.yml')) if dest.exists() else []
         if not ctx.dry and (not found or not pfound):
             raise InstallError('archive must contain extension.yml and preset.yml', INTEGRITY)
-        return (found[0].parent if found else dest / EXT_ID), (pfound[0].parent if pfound else dest / PRESET_ID)
+        ext_dir = found[0].parent if found else dest / EXT_ID
+        if not ctx.dry and not (ext_dir / 'skills').is_dir():
+            raise InstallError('archive extension has no skills/ folder; build it with `install.py package`', INTEGRITY)
+        return ext_dir, (pfound[0].parent if pfound else dest / PRESET_ID)
     return None, None  # catalog: install by id
 
 
@@ -236,8 +280,8 @@ def restore_flow_settings(ctx, saved):
 def bootstrap_config(ctx, ext_dir):
     """Copy the template to the project config only if absent; apply --profile and --set."""
     cfg_dir = ctx.repo / '.specify' / 'extensions' / EXT_ID
-    cfg = cfg_dir / 'sdlc-skills-config.yml'
-    template = (Path(ext_dir) / 'config' / 'sdlc-skills-config.template.yml') if ext_dir else None
+    cfg = cfg_dir / CONFIG_NAME
+    template = (Path(ext_dir) / 'config' / (EXT_ID + '-config.template.yml')) if ext_dir else None
     if cfg.exists():
         ctx.log('config exists, left untouched: ' + str(cfg))
         return
@@ -245,7 +289,7 @@ def bootstrap_config(ctx, ext_dir):
         ctx.log(f'would create {cfg}')
         return
     if template is None or not template.is_file():
-        template = cfg_dir / 'config' / 'sdlc-skills-config.template.yml'
+        template = cfg_dir / 'config' / (EXT_ID + '-config.template.yml')
     text = template.read_text(encoding='utf-8')
     if ctx.args.profile == 'strict':
         text = re.sub(r'required:\s*false', 'required: true', text, count=1)
@@ -260,6 +304,28 @@ def bootstrap_config(ctx, ext_dir):
     cfg_dir.mkdir(parents=True, exist_ok=True)
     cfg.write_text(text, encoding='utf-8')
     ctx.log(f'config written ({ctx.args.profile} profile): {cfg}')
+
+
+def install_agent_skills(ctx):
+    """Copy the skills into an agent skills folder (for example .claude/skills) for direct use."""
+    if not ctx.args.agent_skills:
+        return
+    if ctx.args.source != 'local':
+        ctx.log('warning: --agent-skills needs --source local; skipped')
+        return
+    _, _, skills = source_paths(ctx.args.local_path)
+    target_root = Path(ctx.args.agent_skills)
+    target_root = target_root if target_root.is_absolute() else ctx.repo / target_root
+    for src in sorted(p for p in skills.iterdir() if p.is_dir()):
+        target = target_root / src.name
+        if target.exists() and ctx.args.command != 'update':
+            ctx.log(f'agent skill exists, left untouched: {target}')
+            continue
+        ctx.log(f'agent skill {src.name} -> {target}' + ('   [dry-run, not copied]' if ctx.dry else ''))
+        if not ctx.dry:
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(src, target, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
 
 
 def post_checks(ctx, specify):
@@ -283,11 +349,11 @@ def cmd_install(ctx, specify, update=False):
     if ext_ok and preset_ok and not update:
         ctx.log('already installed')
         return {'status': 'already installed'}
-    with tempfile.TemporaryDirectory(prefix='sdlc-skills-install-') as work:
+    with tempfile.TemporaryDirectory(prefix=EXT_ID + '-install-') as work:
         ext_src, preset_src = locate_sources(ctx, work)
-        if ext_src is not None:
+        if ext_src is not None and (ext_src / 'skills.lock.yml').is_file():
             verify_lock(ext_src)
-            ctx.log('vendored skill lock verified (before)')
+            ctx.log('skill lock verified (before)')
         backup = backup_registries(ctx)
         saved_flow = read_flow_settings(ctx) if update else None
         try:
@@ -310,8 +376,9 @@ def cmd_install(ctx, specify, update=False):
             installed_ext = ctx.repo / '.specify' / 'extensions' / EXT_ID
             if not ctx.dry and installed_ext.is_dir():
                 verify_lock(installed_ext)
-                ctx.log('vendored skill lock verified (after)')
+                ctx.log('skill lock verified (after)')
             post_checks(ctx, specify)
+            install_agent_skills(ctx)
         except InstallError as exc:
             if not ctx.dry:
                 # Remove what this run added while it is still registered, then restore the registries.
@@ -338,8 +405,8 @@ def cmd_verify(ctx, specify):
             verify_lock(ext_dir)
         except InstallError as exc:
             raise InstallError(str(exc), INTEGRITY)
-        cfg = ext_dir / 'sdlc-skills-config.yml'
-        template = ext_dir / 'config' / 'sdlc-skills-config.template.yml'
+        cfg = ext_dir / CONFIG_NAME
+        template = ext_dir / 'config' / (EXT_ID + '-config.template.yml')
         locked = locked_ids(template)
         if cfg.is_file():
             for ident in locked:
@@ -391,6 +458,27 @@ def cmd_uninstall(ctx, specify):
     return {'status': 'uninstalled'}
 
 
+def cmd_package(args):
+    """Build one zip holding the staged extension (with its skills) and the preset, plus its SHA-256."""
+    ext, preset, skills = source_paths(args.local_path)
+    version = re.search(r'^\s+version:\s*"?([\d.]+)', (ext / 'extension.yml').read_text(encoding='utf-8'), re.M).group(1)
+    out_dir = Path(args.output).resolve()
+    archive = out_dir / f'{EXT_ID}-{version}.zip'
+    if archive.exists():
+        raise InstallError(f'{archive} already exists; use a new --output or version')
+    with tempfile.TemporaryDirectory(prefix=EXT_ID + '-package-') as work:
+        root = Path(work)
+        stage_extension(ext, skills, root / EXT_ID)
+        shutil.copytree(preset, root / PRESET_ID, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(archive, 'x', compression=zipfile.ZIP_DEFLATED) as z:
+            for path in sorted(p for p in root.rglob('*') if p.is_file()):
+                z.write(path, path.relative_to(root).as_posix())
+    digest = sha256_file(archive)
+    (out_dir / (archive.name + '.sha256')).write_text(f'{digest}  {archive.name}\n', encoding='utf-8')
+    return {'archive': str(archive), 'sha256': digest, 'version': version}
+
+
 def run_one(args, repo):
     ctx = Ctx(args, repo)
     try:
@@ -405,16 +493,18 @@ def run_one(args, repo):
 
 def build_parser():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('command', choices=['install', 'update', 'verify', 'status', 'uninstall'])
+    ap.add_argument('command', choices=['install', 'update', 'verify', 'status', 'uninstall', 'package'])
     ap.add_argument('--repo', help='Spec Kit project to change')
     ap.add_argument('--repos-file', help='file with one repo path per line (bulk mode)')
     ap.add_argument('--source', choices=['local', 'catalog', 'url', 'bundle'], default='local')
-    ap.add_argument('--local-path', help='directory holding sdlc-skills/ and org-sdlc/ (default: this checkout)')
+    ap.add_argument('--local-path', help='sdlc-skills checkout to install from (default: this checkout)')
     ap.add_argument('--url'), ap.add_argument('--sha256'), ap.add_argument('--bundle')
     ap.add_argument('--version', help='exact catalog release to install')
     ap.add_argument('--priority', type=int, default=5, help='preset priority (lower wins), default 5')
     ap.add_argument('--profile', choices=['default', 'strict'], default='default')
     ap.add_argument('--set', action='append', metavar='key=value', help='override a config value')
+    ap.add_argument('--agent-skills', metavar='DIR', help='also copy the skills into this agent skills folder, relative to the repo (for example .claude/skills)')
+    ap.add_argument('--output', default='dist', help='package: output folder (default dist)')
     ap.add_argument('--specify', help='path to the specify executable')
     ap.add_argument('--dry-run', action='store_true')
     ap.add_argument('--json', action='store_true')
@@ -424,6 +514,14 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    if args.command == 'package':
+        try:
+            result = cmd_package(args)
+        except InstallError as exc:
+            print('error: ' + str(exc), file=sys.stderr)
+            return exc.code
+        print(json.dumps(result, indent=2) if args.json else f"{result['archive']}\nsha256 {result['sha256']}")
+        return OK
     if args.repos_file:
         repos = [l.strip() for l in Path(args.repos_file).read_text(encoding='utf-8').splitlines()
                  if l.strip() and not l.startswith('#')]
