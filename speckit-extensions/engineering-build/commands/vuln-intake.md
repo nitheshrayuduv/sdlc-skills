@@ -19,10 +19,10 @@ Do not invent another name such as `specs/vuln`.
 
 Wait for each answer. Skip a question only if the user already gave the answer in this request.
 
-1. **Flow:** deploy or release.
+1. **Flow:** one of the flow names in the flow config (list them from `flows` in `vuln-flows.json`).
 2. **Agility ticket number.**
 3. **Branch** to work on (default `vuln/<ticket>`).
-4. **Base branch** (parent branch): the branch the working branch is created from in every repo where it does not exist yet, and the branch the PRs target. Ask it in those words: "Which base branch should the working branch be created from?" Always ask, even if the branch already exists in some repos. Suggest a default from the branch name when it carries a version line, for example `S-139218-26.3.x` suggests `26.3.x-maintenance`; otherwise suggest nothing. Also ask whether any repo needs a different base branch (for example a repo with no maintenance branch for that line).
+4. **Base branch** (parent branch): the branch the working branch is created from in every repo where it does not exist yet, and the branch the PRs target. Ask it in those words: "Which base branch should the working branch be created from?" Always ask, even if the branch already exists in some repos. Suggest a default from the branch name when it carries a version line, using the team's branch for that line when one exists (for example `S-12345-1.4.x` suggests `1.4.x-maintenance`); otherwise suggest nothing. Also ask whether any repo needs a different base branch (for example a repo with no branch for that line).
 
 ## Then
 

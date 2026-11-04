@@ -238,7 +238,10 @@ def restore_registries(ctx, backup):
             shutil.copy2(src, target)
 
 
-PRESERVED_FLOW_KEYS = ('workspace_root', 'branch_prefix', 'build', 'repo_overrides', 'base_branch')
+# The shipped vuln-flows.json is a neutral example. Real repo chains and hand-overs belong to
+# the project, so update keeps them; --flows-config installs them from a private file.
+PRESERVED_FLOW_KEYS = ('workspace_root', 'branch_prefix', 'build', 'repo_overrides', 'base_branch',
+                       'platform_repo', 'reference_paths', 'handoff', 'flows')
 
 
 def flow_config_path(ctx):
@@ -246,7 +249,7 @@ def flow_config_path(ctx):
 
 
 def merge_flow_settings(fresh, saved):
-    """Keep the project's own flow settings; take everything else (repo chains, handoff) from the new release."""
+    """Keep the project's own flow settings (including repo chains and hand-overs); take new default keys from the release."""
     merged = dict(fresh)
     for key in PRESERVED_FLOW_KEYS:
         if key not in saved:
@@ -268,13 +271,31 @@ def read_flow_settings(ctx):
         return None
 
 
-def restore_flow_settings(ctx, saved):
+def read_private_flows(ctx):
+    """Load --flows-config, the team's own vuln-flows.json kept outside version control."""
+    if not ctx.args.flows_config:
+        return None
+    path = Path(ctx.args.flows_config).expanduser()
+    try:
+        return json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as exc:
+        raise InstallError(f'--flows-config {path}: {exc}', PREFLIGHT)
+
+
+def restore_flow_settings(ctx, saved, private=None):
     path = flow_config_path(ctx)
-    if saved is None or ctx.dry or not path.is_file():
+    if (saved is None and private is None) or ctx.dry or not path.is_file():
+        if private is not None and ctx.dry:
+            ctx.log(f'would apply flow settings from {ctx.args.flows_config}')
         return
-    merged = merge_flow_settings(json.loads(path.read_text(encoding='utf-8')), saved)
+    merged = json.loads(path.read_text(encoding='utf-8'))
+    if saved is not None:
+        merged = merge_flow_settings(merged, saved)
+        ctx.log('kept this project\'s flow settings in ' + str(path) + ' (' + ', '.join(PRESERVED_FLOW_KEYS) + ')')
+    if private is not None:
+        merged = {**merged, **private}
+        ctx.log(f'applied flow settings from {ctx.args.flows_config}')
     path.write_text(json.dumps(merged, indent=2) + '\n', encoding='utf-8')
-    ctx.log('kept this project\'s flow settings in ' + str(path) + ' (' + ', '.join(PRESERVED_FLOW_KEYS) + ')')
 
 
 def bootstrap_config(ctx, ext_dir):
@@ -356,6 +377,7 @@ def cmd_install(ctx, specify, update=False):
             ctx.log('skill lock verified (before)')
         backup = backup_registries(ctx)
         saved_flow = read_flow_settings(ctx) if update else None
+        private_flow = read_private_flows(ctx)
         try:
             ext_cmd = [specify, 'extension', 'add'] + ([str(ext_src), '--dev'] if ext_src else [EXT_ID])
             preset_cmd = [specify, 'preset', 'add'] + (['--dev', str(preset_src)] if preset_src else [PRESET_ID])
@@ -371,7 +393,7 @@ def cmd_install(ctx, specify, update=False):
             ctx.run(preset_cmd + ['--priority', str(ctx.args.priority)])
             if ctx.args.inject_failure == 'after-extension':
                 raise InstallError('injected failure after extension add')
-            restore_flow_settings(ctx, saved_flow)
+            restore_flow_settings(ctx, saved_flow, private_flow)
             bootstrap_config(ctx, ext_src)
             installed_ext = ctx.repo / '.specify' / 'extensions' / EXT_ID
             if not ctx.dry and installed_ext.is_dir():
@@ -504,6 +526,7 @@ def build_parser():
     ap.add_argument('--profile', choices=['default', 'strict'], default='default')
     ap.add_argument('--set', action='append', metavar='key=value', help='override a config value')
     ap.add_argument('--agent-skills', metavar='DIR', help='also copy the skills into this agent skills folder, relative to the repo (for example .claude/skills)')
+    ap.add_argument('--flows-config', metavar='FILE', help="your team's vuln-flows.json (real repo chains), kept outside git; overlays the shipped example")
     ap.add_argument('--output', default='dist', help='package: output folder (default dist)')
     ap.add_argument('--specify', help='path to the specify executable')
     ap.add_argument('--dry-run', action='store_true')
