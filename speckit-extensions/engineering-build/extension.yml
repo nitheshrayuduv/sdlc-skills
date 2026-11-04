@@ -2,8 +2,8 @@ schema_version: "1.0"
 extension:
   id: engineering-build
   name: Engineering Build
-  version: "2.0.0"
-  description: Engineering Build across the Spec Kit workflow, calling pinned companion skills (grill-me, database-schema-designer, api-designer, playwright-expert, engineering-vulnerability-upgrade) at the right stage through a binding registry.
+  version: "2.1.0"
+  description: Engineering Build across the Spec Kit workflow, calling pinned companion skills (grill-me, database-schema-designer, api-designer, playwright-expert, ponytail, engineering-vulnerability-upgrade) at the right stage through a binding registry.
   license: MIT
 requires:
   speckit_version: ">=1.2.0,<2.0.0"

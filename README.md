@@ -16,7 +16,8 @@ sdlc-skills/
 │   ├── grill-me/                            clarify interview (companion, vendored, MIT)
 │   ├── database-schema-designer/            data model design (companion, vendored, MIT)
 │   ├── api-designer/                        OpenAPI contract design (companion, vendored, MIT)
-│   └── playwright-expert/                   end-to-end tests (companion, vendored, MIT)
+│   ├── playwright-expert/                   end-to-end tests (companion, vendored, MIT)
+│   └── ponytail/                            smallest complete change at implement (companion, vendored, MIT)
 ├── speckit-extensions/
 │   └── engineering-build/                   the Spec Kit extension
 │       ├── extension.yml                    commands and the 12 stage hooks
@@ -136,6 +137,7 @@ Engineering Build hooks run before and after each stage. They add the architectu
 | `plan` | database-schema-designer | The feature changes the data model | `data-model.md`, `db/` drafts |
 | `plan` | api-designer | The feature adds or changes an API | `contracts/openapi.yaml` |
 | `tasks`, `implement` | playwright-expert | A UI flow needs an `[E2E]` test | `[E2E]` tasks, Page Objects and specs, rule checks |
+| `implement` | ponytail | Always, for every task | The smallest change that fully solves the task, and a note on what was skipped |
 | `plan`, `tasks`, `implement` | engineering-vulnerability-upgrade | A vulnerability ticket drives the feature | Section 4 |
 
 The preset calls each skill at the right point inside its stage. If the preset is missing or a call is skipped, the after-stage hooks run the skills themselves.

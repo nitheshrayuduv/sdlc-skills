@@ -18,6 +18,7 @@ Engineering Build calls pinned companion skills at set stages. The registry `EXT
 | plan | database-schema-designer | The feature changes the data model |
 | plan | api-designer | The feature adds or changes an API |
 | tasks, implement | playwright-expert | A Playwright (`[E2E]`) test is planned or written |
+| implement | ponytail | Every task: the smallest change that fully solves it |
 | plan, tasks, implement | engineering-vulnerability-upgrade | The feature is driven by a vulnerability ticket |
 
 The `engineering-build-preset` preset places the runner call at the exact point inside clarify, plan, tasks and implement. The hooks are the safety net: when a hook needs a stage's skill results, check `<feature_dir>/skill-runs.md` for rows of that stage from this run. If they are missing (the preset is not installed, or the agent skipped it), follow `EXT/commands/run.md` for that stage before continuing. Never run a stage's bindings twice in one stage run; the runner updates rows instead of duplicating them.
