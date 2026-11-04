@@ -18,7 +18,7 @@ PRESET = EXT / 'preset'
 REPO = EXT.parent.parent
 SKILLS_DIR = REPO / 'skills'
 INSTALLER = REPO / 'installer' / 'install.py'
-UPSTREAM = ('grill-me', 'database-schema-designer', 'api-designer', 'playwright-expert')
+UPSTREAM = ('grill-me', 'database-schema-designer', 'api-designer', 'playwright-expert', 'ponytail')
 INTERNAL = ('engineering-build', 'engineering-vulnerability-upgrade')
 SKILLS = UPSTREAM + INTERNAL
 STAGES = ('constitution', 'specify', 'clarify', 'plan', 'tasks', 'implement')
@@ -48,8 +48,16 @@ class StaticChecks(unittest.TestCase):
     def test_registry_covers_the_four_pairings(self):
         text = CONFIG.read_text(encoding='utf-8')
         for stage, skill in (('clarify', 'grill-me'), ('plan', 'database-schema-designer'),
-                             ('plan', 'api-designer'), ('implement.e2e-test', 'playwright-expert')):
+                             ('plan', 'api-designer'), ('implement.e2e-test', 'playwright-expert'),
+                             ('implement', 'ponytail')):
             self.assertRegex(text, rf'stage:\s*{re.escape(stage)}\s*\n(?:.*\n)*?\s+skill:\s*{skill}')
+
+    def test_ponytail_runs_on_every_implement_task_first(self):
+        text = CONFIG.read_text(encoding='utf-8')
+        self.assertRegex(text, r'id:\s*impl-minimal\s*\n\s+stage:\s*implement\s*\n\s+order:\s*10\s*\n\s+skill:\s*ponytail'
+                               r'\s*\n(?:.*\n)*?\s+trigger:\s*\{\s*type:\s*always\s*\}')
+        for rel in ('preset/commands/speckit.implement.md', 'commands/prepare-implement.md'):
+            self.assertIn('ponytail', (EXT / rel).read_text(encoding='utf-8'), rel)
 
     def test_vulnerability_bindings_and_commands(self):
         text = CONFIG.read_text(encoding='utf-8')

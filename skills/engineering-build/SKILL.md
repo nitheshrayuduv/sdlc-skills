@@ -21,7 +21,7 @@ During an explicitly requested Spec Kit implement command, implement the approve
 
 ## Call the companion skills
 
-Engineering Build owns the overall design, security, standards, tasks and evidence. For four narrower jobs it hands over to a vetted companion skill and builds on its output, instead of improvising the same work:
+Engineering Build owns the overall design, security, standards, tasks and evidence. For narrower jobs it hands over to a vetted companion skill and builds on its output, instead of improvising the same work:
 
 | Stage | Companion skill | Call it when | Its output lands in |
 | --- | --- | --- | --- |
@@ -29,6 +29,7 @@ Engineering Build owns the overall design, security, standards, tasks and eviden
 | plan | database-schema-designer | The feature changes the data model (new or changed entities, fields, relationships, retention, stored-data reporting) | `data-model.md`, `db/` drafts |
 | plan, after the database step | api-designer | The feature adds or changes an API (REST or GraphQL) | `contracts/openapi.yaml`, API Design in `plan.md` |
 | tasks and implement | playwright-expert | A browser end-to-end test is planned (`[E2E]` task) or written | `[E2E]` tasks, Page Objects and specs |
+| implement | ponytail | Every task: write the smallest change that fully solves it, never cutting what the spec, plan or task asks for | Code, and one or two lines per task on what was skipped |
 | plan, tasks and implement | engineering-vulnerability-upgrade | A vulnerability ticket drives the feature | Vulnerability Upgrade in `plan.md`, `[VULN]` tasks, `vuln/` |
 
 How to call them:
@@ -117,4 +118,4 @@ For an updated plan, reuse its feature folder, compare current code and requirem
 - [API and integration planning](references/api.md): Conditional detail for affected interfaces, consumers, permissions, failures and contract checks.
 - [Implementation plan](references/implementation.md): Work breakdown, tests and rollout.
 - [Sources](references/sources.md): Background and official references.
-- Companion skills: [grill-me](../grill-me/grill-me.md), [database-schema-designer](../database-schema-designer/SKILL.md), [api-designer](../api-designer/SKILL.md), [playwright-expert](../playwright-expert/SKILL.md), [engineering-vulnerability-upgrade](../engineering-vulnerability-upgrade/SKILL.md).
+- Companion skills: [grill-me](../grill-me/grill-me.md), [database-schema-designer](../database-schema-designer/SKILL.md), [api-designer](../api-designer/SKILL.md), [playwright-expert](../playwright-expert/SKILL.md), [ponytail](../ponytail/SKILL.md), [engineering-vulnerability-upgrade](../engineering-vulnerability-upgrade/SKILL.md).

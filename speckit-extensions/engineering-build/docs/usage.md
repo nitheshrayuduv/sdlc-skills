@@ -14,7 +14,7 @@ Keep using the standard Spec Kit commands. For Copilot/Claude with the default s
 
 For Codex, use the corresponding $speckit- names. Clarify runs when you choose that stage; the extension does not automatically launch every stage. Implementation requires an explicit implementation request.
 
-Companion skills run inside those same commands; you do not call them. grill-me interviews you at clarify; database-schema-designer and api-designer review the plan when the data model or an API changes; playwright-expert shapes `[E2E]` tasks and tests. For a vulnerability ticket, start with `/speckit-engineering-build-vuln-intake`. To turn a skill off for one repository, set `enabled: false` on its binding in `.specify/extensions/engineering-build/engineering-build-config.yml`.
+Companion skills run inside those same commands; you do not call them. grill-me interviews you at clarify; database-schema-designer and api-designer review the plan when the data model or an API changes; playwright-expert shapes `[E2E]` tasks and tests; ponytail keeps every implement task to the smallest complete change (set `settings.level` on `impl-minimal` to `lite`, `full` or `ultra`). For a vulnerability ticket, start with `/speckit-engineering-build-vuln-intake`. To turn a skill off for one repository, set `enabled: false` on its binding in `.specify/extensions/engineering-build/engineering-build-config.yml`.
 
 Before hooks prepare context and return to the current stage. After hooks complete or check the stage's documents. They never invoke core commands recursively. A direct extension command performs only its named action.
 

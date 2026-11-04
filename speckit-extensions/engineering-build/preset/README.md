@@ -7,6 +7,6 @@ Wraps `speckit.clarify`, `speckit.plan`, `speckit.tasks` and `speckit.implement`
 | clarify | before the core steps | grill-me |
 | plan | after the core design step | database-schema-designer, api-designer, engineering-vulnerability-upgrade |
 | tasks | after core task generation | playwright-expert, engineering-vulnerability-upgrade |
-| implement | standing instruction before the core steps | playwright-expert, engineering-vulnerability-upgrade |
+| implement | standing instruction before the core steps | ponytail, playwright-expert, engineering-vulnerability-upgrade |
 
 The preset requires the extension. Install both with the installer, which adds the extension (with its skills) first and this preset at priority 5: see [installer/README.md](../../../installer/README.md).
