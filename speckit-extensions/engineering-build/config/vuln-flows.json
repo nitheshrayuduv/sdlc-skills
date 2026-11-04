@@ -2,9 +2,9 @@
   "schema_version": "1.0",
   "workspace_root": "~/work",
   "branch_prefix": "vuln/",
-  "platform_repo": "xl-platform",
+  "platform_repo": "shared-lib",
   "reference_paths": [
-    "xl-reference"
+    "bom"
   ],
   "version_files": [
     "dependencies.conf",
@@ -46,96 +46,29 @@
   },
   "handoff": [
     {
-      "from": "xl-platform",
+      "from": "shared-lib",
       "version_source": "gradle",
       "to": [
         {
-          "repo": "central-configuration",
+          "repo": "service-a",
           "file": "gradle/dependencies.conf",
-          "key": "xlPlatformVersion"
+          "key": "sharedLibVersion"
         },
         {
-          "repo": "deploy-central-configuration",
+          "repo": "service-b",
           "file": "gradle/dependencies.conf",
-          "key": "xlPlatformVersion"
-        },
-        {
-          "repo": "deploy-permission-service",
-          "file": "gradle/dependencies.conf",
-          "key": "xlPlatformVersion"
-        },
-        {
-          "repo": "deploy-task-engine",
-          "file": "gradle/dependencies.conf",
-          "key": "xlPlatformVersion"
-        },
-        {
-          "repo": "xl-deploy",
-          "file": "gradle/dependencies.conf",
-          "key": "xlPlatformVersion"
-        },
-        {
-          "repo": "xl-satellite",
-          "file": "gradle/dependencies.conf",
-          "key": "xlPlatformVersion"
-        },
-        {
-          "repo": "xld-stitch-core",
-          "file": "gradle/dependencies.conf",
-          "key": "xlPlatformVersion"
-        },
-        {
-          "repo": "deploy-cli",
-          "file": "gradle/dependencies.conf",
-          "key": "xlPlatformVersion"
+          "key": "sharedLibVersion"
         }
       ]
     },
     {
-      "from": "central-configuration",
+      "from": "service-a",
       "version_source": "gradle",
       "to": [
         {
-          "repo": "deploy-task-engine",
+          "repo": "service-b",
           "file": "gradle/dependencies.conf",
-          "key": "centralConfigurationVersion"
-        },
-        {
-          "repo": "xl-deploy",
-          "file": "gradle/dependencies.conf",
-          "key": "centralConfigurationVersion"
-        }
-      ]
-    },
-    {
-      "from": "deploy-task-engine",
-      "version_source": "gradle",
-      "to": [
-        {
-          "repo": "xl-deploy",
-          "file": "gradle/dependencies.conf",
-          "key": "deployTaskEngineVersion"
-        },
-        {
-          "repo": "xl-satellite",
-          "file": "gradle/dependencies.conf",
-          "key": "deployTaskEngineVersion"
-        },
-        {
-          "repo": "deploy-cli",
-          "file": "gradle/dependencies.conf",
-          "key": "deployTaskEngineVersion"
-        }
-      ]
-    },
-    {
-      "from": "xl-deploy",
-      "version_source": "gradle",
-      "to": [
-        {
-          "repo": "deploy-cli",
-          "file": "gradle/dependencies.conf",
-          "key": "xlDeployVersion"
+          "key": "serviceAVersion"
         }
       ]
     }
@@ -143,26 +76,12 @@
   "repo_overrides": {},
   "base_branch": {},
   "flows": {
-    "deploy": {
+    "main": {
       "publish": true,
       "repos": [
-        "xl-platform",
-        "central-configuration",
-        "deploy-central-configuration",
-        "deploy-permission-service",
-        "xld-stitch-core",
-        "deploy-task-engine",
-        "xl-deploy",
-        "xl-satellite",
-        "overthere",
-        "deploy-cli"
-      ]
-    },
-    "release": {
-      "publish": true,
-      "repos": [
-        "xl-platform",
-        "xl-release"
+        "shared-lib",
+        "service-a",
+        "service-b"
       ]
     }
   }

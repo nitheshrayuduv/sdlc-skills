@@ -2,7 +2,7 @@
 
 Decide whether this feature is a vulnerability upgrade driven by an Agility ticket.
 
-**Yes:** `<feature_dir>/vuln/intake.json` exists, or `spec.md` names an Agility vulnerability ticket (for example `Vulnerability report of DEPLOY`, a `D-` or `S-` number with CVE rows, or the words vulnerable and fixed version for Gradle dependencies).
+**Yes:** `<feature_dir>/vuln/intake.json` exists, or `spec.md` names an Agility vulnerability ticket (for example `Vulnerability report of <FLOW>`, a `D-` or `S-` number with CVE rows, or the words vulnerable and fixed version for Gradle dependencies).
 
 **No:** neither of the above.
 
