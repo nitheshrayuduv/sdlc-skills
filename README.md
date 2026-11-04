@@ -161,9 +161,11 @@ bindings:
     enabled: false
   - id: clarify-grill
     settings: { max_rounds: 3, interaction: one-at-a-time }
+  - id: impl-minimal
+    settings: { level: ultra }
 ```
 
-Here `enabled: false` turns the api-designer skill off for this repository.
+Here `enabled: false` turns the api-designer skill off for this repository. `impl-minimal` is ponytail at implement: `lite` builds what was asked and names a smaller option, `full` (default) writes the smallest complete change, `ultra` also questions the request before coding.
 
 When a skill's tooling is missing (for example, no network for the API lint), the stage records a warning and continues. Set `required: true` on a binding, or install with `--profile strict`, to stop the stage instead.
 
@@ -237,6 +239,7 @@ cp -r /path/to/sdlc-skills/skills/onboarding ~/.claude/skills/
 | `engineering-review` | Review a whole repository for technical debt, defects and gaps, with source-backed findings and prioritized fixes | "Review this repository with the engineering-review skill" |
 | `onboarding` | Explain an existing repository: architecture, flows, database schema, APIs, modules, standards | "Use the onboarding skill to document how this repo works" |
 | `engineering-vulnerability-upgrade` | Run the vulnerability workflow without Spec Kit | "Use engineering-vulnerability-upgrade for ticket D-12345" |
+| `ponytail` | Write the smallest change that fully solves a coding task, and say what was skipped | "ponytail: fix the date parsing bug" |
 
 Restart the agent, then ask for the skill by name.
 
