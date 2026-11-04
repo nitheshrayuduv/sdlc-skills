@@ -6,7 +6,7 @@ image, then rows of CVE, severity, impacted package, version, fix version and fi
 lines such as "group:artifact 1.2.3 -> 1.2.4" are understood as a fallback.
 
 The token is read from AGILITY_TOKEN and the server from AGILITY_URL (for example
-https://www7.v1host.com/Instance). Neither is ever written to a file or log.
+https://<your-agility-host>/<instance>). Neither is ever written to a file or log.
 """
 import argparse
 import html
@@ -129,7 +129,8 @@ def parse_findings(raw):
 
 def flow_hint(raw):
     match = REPORT_FLOW.search(to_text(raw))
-    return match.group(1).lower() if match and match.group(1).lower() in ('deploy', 'release') else None
+    """The flow named in the report header, lower-cased; a hint only, checked against the config by intake."""
+    return match.group(1).lower() if match else None
 
 
 def fetch_ticket(ticket):
