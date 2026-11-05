@@ -39,58 +39,9 @@ Each skill is stored once, in `skills/`. The extension holds no copies: at insta
 
 | I want to... | Use |
 | --- | --- |
-| Review a repository, explain one to new engineers, or keep changes minimal, in any agent | [Install the skills](#install-the-skills) |
 | Plan and build features with architecture, security, standards and vetted companion skills | [Install the Spec Kit extension and preset](#install-the-spec-kit-extension-and-preset), then [Use it](#use-it) |
 | Fix vulnerable Gradle versions listed in an Agility ticket | The extension, then [Vulnerability upgrade](#vulnerability-upgrade-from-an-agility-ticket) |
 | Add a skill to a stage (unit tests, security review) | [Add a skill to a stage](#add-a-skill-to-a-stage) |
-
-## Install the skills
-
-Every folder in `skills/` is a normal agent skill: a `SKILL.md` with its references. Installing one means copying its folder into your agent's skills folder.
-
-| Agent | All projects | One project |
-| --- | --- | --- |
-| Claude Code | `~/.claude/skills/` | `<repo>/.claude/skills/` |
-| GitHub Copilot | | `<repo>/.github/skills/` |
-| Other agents with skill support | | `<repo>/.agents/skills/` |
-
-1. Clone this repository, outside your own repository:
-
-   ```bash
-   git clone https://github.com/nitheshrayuduv/sdlc-skills.git
-   ```
-
-2. Copy the skills you want. One skill (macOS, Linux, Git Bash):
-
-   ```bash
-   mkdir -p ~/.claude/skills && cp -r sdlc-skills/skills/onboarding ~/.claude/skills/
-   ```
-
-   All skills:
-
-   ```bash
-   mkdir -p ~/.claude/skills && cp -r sdlc-skills/skills/* ~/.claude/skills/
-   ```
-
-   On Windows PowerShell:
-
-   ```powershell
-   New-Item -ItemType Directory -Force "$HOME\.claude\skills" | Out-Null; Copy-Item -Recurse -Force sdlc-skills\skills\* "$HOME\.claude\skills\"
-   ```
-
-3. Restart the agent, then ask for the skill by name.
-
-To update, pull this repository and copy again. If you also install the Spec Kit extension, `install.py install --agent-skills .claude/skills` does the copy for you into that repository.
-
-| Skill | Use it to | Example request |
-| --- | --- | --- |
-| `engineering-build` | Plan and build one feature without Spec Kit. It applies the companion skills by hand, so copy them too: `grill-me`, `database-schema-designer`, `api-designer`, `playwright-expert`, `ponytail` | "Use engineering-build to plan adding rate limiting" |
-| `engineering-review` | Review a whole repository for technical debt, defects and gaps, with source-backed findings and prioritized fixes | "Review this repository with the engineering-review skill" |
-| `onboarding` | Explain an existing repository: architecture, flows, database schema, APIs, modules, standards | "Use the onboarding skill to document how this repo works" |
-| `ponytail` | Write the smallest change that fully solves a coding task, and say what was skipped | "ponytail: fix the date parsing bug" |
-| `database-schema-designer`, `api-designer`, `playwright-expert` | The companion skills also work on their own | "Design the REST API for orders with api-designer" |
-
-`grill-me` is a guide article (`grill-me.md`, `grilling.md`) with no `SKILL.md`, so agents do not offer it on their own; `engineering-build` and the extension read it by path. `engineering-vulnerability-upgrade` runs scripts that ship with the extension, so use it through Spec Kit ([Vulnerability upgrade](#vulnerability-upgrade-from-an-agility-ticket)).
 
 ## Install the Spec Kit extension and preset
 
@@ -115,7 +66,14 @@ Use `copilot` or `codex` instead of `claude` if needed. Add `--ignore-agent-tool
 
 ### 2. Run the installer from this repository
 
-Clone this repository outside your repository (see [Install the skills](#install-the-skills), step 1), then from its root preview the install:
+Clone this repository outside your repository:
+
+```bash
+git clone https://github.com/nitheshrayuduv/sdlc-skills.git
+cd sdlc-skills
+```
+
+Preview the install:
 
 ```bash
 python speckit-extensions/install.py install --repo /path/to/your-repo --dry-run
@@ -334,7 +292,6 @@ The suite checks manifests, hooks, bindings, lock integrity, packaging, the Play
 | Symptom | Fix |
 | --- | --- |
 | `claude not found` during `specify init` | Add `--ignore-agent-tools` |
-| A copied skill is not offered | Check the folder holds `SKILL.md` directly (`~/.claude/skills/<skill>/SKILL.md`), then restart the agent |
 | New Spec Kit commands do not appear | Restart the agent; check `specify extension list` and `specify preset list` |
 | `skill-runs.md` is missing after a stage | Check that `specify preset resolve speckit.plan` points at `engineering-build-preset`, then restart the agent |
 | `hash drift` from `verify_lock.py` | A skill was edited. Restore it, or review it and refresh the hashes ([Add a skill to a stage](#add-a-skill-to-a-stage)) |
