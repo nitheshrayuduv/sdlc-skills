@@ -2,10 +2,7 @@
 
 SDLC skills for coding agents, plus one Spec Kit extension that runs them at the right stage of a feature.
 
-There are two ways to use this repository:
-
-- **Skills only:** copy the skills into your agent and ask for them by name. No Spec Kit needed. See [Install the skills](#install-the-skills).
-- **Spec Kit extension and preset:** install Spec Kit in your repository, then run `speckit-extensions/install.py` from this repository. It adds the **engineering-build** extension, its preset, and the skills it uses. See [Install the Spec Kit extension and preset](#install-the-spec-kit-extension-and-preset).
+Install Spec Kit in your repository, then run `speckit-extensions/install.py` from this repository. It adds the **engineering-build** extension, its preset, and the skills it uses. See [Install the Spec Kit extension and preset](#install-the-spec-kit-extension-and-preset).
 
 ## Repository layout
 
