@@ -14,7 +14,7 @@ Python 3.8+, standard library only. It drives the `specify` CLI, so the target n
 python speckit-extensions/install.py install --repo /path/to/app                 # from this checkout
 python speckit-extensions/install.py install --repo /path/to/app --dry-run       # print everything, change nothing
 python speckit-extensions/install.py install --repo /path/to/app --agent-skills .claude/skills   # also copy skills for direct use
-python speckit-extensions/install.py install --repo /path/to/app --flows-config private/vuln-flows.json
+python speckit-extensions/install.py install --repo /path/to/app --flows-config /path/outside/the/clone/vuln-flows.json
 python speckit-extensions/install.py install --repos-file repos.txt              # many repos, one result row each
 python speckit-extensions/install.py install --repo . --profile strict --set max_rounds=4
 python speckit-extensions/install.py verify  --repo . --json                     # CI gate

@@ -266,7 +266,7 @@ All repository knowledge lives in `vuln-flows.json`:
 
 The copy in this repository (`speckit-extensions/engineering-build/config/vuln-flows.json`) is a neutral example with one flow: `shared-lib`, then `service-a` and `service-b`.
 
-Keep your team's real file outside this public repository, for example in a git-ignored `private/` folder in your clone. Then pass it at install time. `update` keeps the project's flows afterwards.
+Keep your team's real file outside this repository and its clone (it names your real repos). Pass it at install time. `update` keeps the project's flows afterwards.
 
 ```bash
 python speckit-extensions/install.py install --repo /path/to/your-repo --flows-config /path/to/vuln-flows.json
