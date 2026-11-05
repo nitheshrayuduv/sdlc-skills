@@ -39,11 +39,11 @@ If the preset is missing or an agent skips a wrapped step, the after hooks (`des
 
 ## Install
 
-Install Spec Kit in the target repository first (`specify init`), then from the repository root of sdlc-skills:
+Install Spec Kit in the target repository first (`specify init`). Then, from the target repository's root, with sdlc-skills cloned next to it:
 
 ```bash
-python speckit-extensions/install.py install --repo /path/to/your-repo --dry-run
-python speckit-extensions/install.py install --repo /path/to/your-repo
+python ../sdlc-skills/speckit-extensions/install.py install --dry-run
+python ../sdlc-skills/speckit-extensions/install.py install
 ```
 
 Then run `/speckit-engineering-build-configure` once in your agent. Details: [docs/install.md](docs/install.md). Day-to-day use: [docs/usage.md](docs/usage.md). Changing skills or releasing: [docs/maintaining.md](docs/maintaining.md).

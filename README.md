@@ -2,7 +2,7 @@
 
 SDLC skills for coding agents, plus one Spec Kit extension that runs them at the right stage of a feature.
 
-Install Spec Kit in your repository, then run `speckit-extensions/install.py` from this repository. It adds the **engineering-build** extension, its preset, and the skills it uses. See [Install the Spec Kit extension and preset](#install-the-spec-kit-extension-and-preset).
+Install Spec Kit in your repository, then run this repository's `speckit-extensions/install.py` from your repository's root. It adds the **engineering-build** extension, its preset, and the skills it uses. See [Install the Spec Kit extension and preset](#install-the-spec-kit-extension-and-preset).
 
 ## Repository layout
 
@@ -64,25 +64,24 @@ specify init --here --integration claude
 
 Use `copilot` or `codex` instead of `claude` if needed. Add `--ignore-agent-tools` if the agent's CLI is not installed (for example, you use the desktop app), and `--script ps` on Windows.
 
-### 2. Run the installer from this repository
+### 2. Run the installer from your repository's root
 
-Clone this repository outside your repository:
+Stay in your repository's root. Clone this repository next to it (not inside it):
 
 ```bash
-git clone https://github.com/nitheshrayuduv/sdlc-skills.git
-cd sdlc-skills
+git clone https://github.com/nitheshrayuduv/sdlc-skills.git ../sdlc-skills
 ```
 
-Preview the install:
+Preview the install. The installer changes the folder you run it from:
 
 ```bash
-python speckit-extensions/install.py install --repo /path/to/your-repo --dry-run
+python ../sdlc-skills/speckit-extensions/install.py install --dry-run
 ```
 
 Then install:
 
 ```bash
-python speckit-extensions/install.py install --repo /path/to/your-repo
+python ../sdlc-skills/speckit-extensions/install.py install
 ```
 
 The installer:
@@ -102,6 +101,7 @@ Useful options:
 | `--agent-skills .claude/skills` | Also copies every skill into your agent's skills folder, for use outside Spec Kit |
 | `--flows-config FILE` | Installs your team's vulnerability flow file ([Vulnerability upgrade](#vulnerability-upgrade-from-an-agility-ticket)) |
 | `--profile strict` | Makes skill quality gates block a stage instead of warning |
+| `--repo PATH` | Installs into another folder instead of the current one |
 | `--repos-file repos.txt` | Installs into many repos, one result row each |
 | `--source bundle --bundle file.zip` | Installs a release zip built with `install.py package`, offline |
 
@@ -116,7 +116,7 @@ Restart your agent, then add the Engineering Build principle to the constitution
 Check the install:
 
 ```bash
-python speckit-extensions/install.py verify --repo /path/to/your-repo
+python ../sdlc-skills/speckit-extensions/install.py verify
 ```
 
 ```bash
@@ -130,14 +130,14 @@ Claude spells Spec Kit commands with hyphens (`/speckit-plan`); some agents use 
 ### Update or remove
 
 ```bash
-python speckit-extensions/install.py update --repo /path/to/your-repo
+python ../sdlc-skills/speckit-extensions/install.py update
 ```
 
 ```bash
-python speckit-extensions/install.py uninstall --repo /path/to/your-repo
+python ../sdlc-skills/speckit-extensions/install.py uninstall
 ```
 
-`update` keeps your project config and flow settings. `uninstall` leaves feature documents and constitution text in place. All commands and options: [speckit-extensions/README.md](speckit-extensions/README.md).
+`update` keeps your project config and flow settings. `uninstall` leaves feature documents and constitution text in place. If you cloned this repository somewhere else, replace `../sdlc-skills` with that path. All commands and options: [speckit-extensions/README.md](speckit-extensions/README.md).
 
 If you used the older packages, remove them before installing. The installer warns if they are still present:
 
@@ -224,7 +224,7 @@ The copy in this repository (`speckit-extensions/engineering-build/config/vuln-f
 Keep your team's real file outside this repository and its clone (it names your real repos). Pass it at install time. `update` keeps the project's flows afterwards.
 
 ```bash
-python speckit-extensions/install.py install --repo /path/to/your-repo --flows-config /path/to/vuln-flows.json
+python ../sdlc-skills/speckit-extensions/install.py install --flows-config /path/to/vuln-flows.json
 ```
 
 The format is in [flows.md](skills/engineering-vulnerability-upgrade/references/flows.md).
@@ -269,7 +269,7 @@ The binding registry is the extension point. Adding a skill needs no change to t
 2. Write `adapters/<id>.md`: which Spec Kit files it reads, where its output goes, and its quality gate.
 3. If deciding when it applies needs judgment, add `detectors/<name>.md`. It answers `yes`, `no` or `unknown`, with evidence.
 4. Add a binding to `config/engineering-build-config.template.yml`. Triggers are `always`, `detect`, `task_tag`, `path_glob`, `any` and `all`.
-5. Refresh the hashes and run the tests, then reinstall with `python speckit-extensions/install.py update --repo <repo>`.
+5. Refresh the hashes and run the tests, then reinstall from your repository's root with `python ../sdlc-skills/speckit-extensions/install.py update`.
 
 To refresh the hashes:
 

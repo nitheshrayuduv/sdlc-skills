@@ -286,6 +286,13 @@ class InstallChecks(unittest.TestCase):
         again = json.loads(self.install(repo).stdout)
         self.assertEqual(again[0]['result']['status'], 'already installed')
 
+    def test_installs_into_the_current_folder_without_repo(self):
+        repo = self.init('cwd')
+        res = run(sys.executable, '-B', INSTALLER, 'install', '--json', cwd=repo)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertEqual(Path(json.loads(res.stdout)[0]['repo']), repo.resolve())
+        self.assertTrue((repo / '.specify' / 'extensions' / 'engineering-build' / 'extension.yml').is_file())
+
     def test_dry_run_changes_nothing(self):
         repo = self.init('ac16-dry')
         before = sorted(p.relative_to(repo).as_posix() for p in repo.rglob('*'))

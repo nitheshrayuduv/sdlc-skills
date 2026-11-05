@@ -8,18 +8,19 @@
 
 ## install.py
 
-Python 3.8+, standard library only. It drives the `specify` CLI, so the target needs `specify` 1.2.0 or later on the PATH and a project created with `specify init`. Run it from a clone of this repository:
+Python 3.8+, standard library only. It drives the `specify` CLI, so the target needs `specify` 1.2.0 or later on the PATH and a project created with `specify init`. Run it from the root of the repository you are installing into; it changes the current folder unless you pass `--repo`. The examples assume this repository is cloned next to yours, at `../sdlc-skills`:
 
 ```bash
-python speckit-extensions/install.py install --repo /path/to/app                 # from this checkout
-python speckit-extensions/install.py install --repo /path/to/app --dry-run       # print everything, change nothing
-python speckit-extensions/install.py install --repo /path/to/app --agent-skills .claude/skills   # also copy skills for direct use
-python speckit-extensions/install.py install --repo /path/to/app --flows-config /path/outside/the/clone/vuln-flows.json
-python speckit-extensions/install.py install --repos-file repos.txt              # many repos, one result row each
-python speckit-extensions/install.py install --repo . --profile strict --set max_rounds=4
-python speckit-extensions/install.py verify  --repo . --json                     # CI gate
-python speckit-extensions/install.py status|update|uninstall --repo .
-python speckit-extensions/install.py package --output dist                       # release zip + .sha256
+python ../sdlc-skills/speckit-extensions/install.py install                                  # into the current folder
+python ../sdlc-skills/speckit-extensions/install.py install --dry-run                        # print everything, change nothing
+python ../sdlc-skills/speckit-extensions/install.py install --agent-skills .claude/skills    # also copy skills for direct use
+python ../sdlc-skills/speckit-extensions/install.py install --flows-config /path/outside/the/clone/vuln-flows.json
+python ../sdlc-skills/speckit-extensions/install.py install --repo /path/to/other-repo        # a different folder
+python ../sdlc-skills/speckit-extensions/install.py install --repos-file repos.txt            # many repos, one result row each
+python ../sdlc-skills/speckit-extensions/install.py install --profile strict --set max_rounds=4
+python ../sdlc-skills/speckit-extensions/install.py verify --json                           # CI gate
+python ../sdlc-skills/speckit-extensions/install.py status|update|uninstall
+python speckit-extensions/install.py package --output dist          # release zip + .sha256 (run in this repository)
 ```
 
 What `install` does, in order:
