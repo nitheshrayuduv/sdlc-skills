@@ -74,13 +74,13 @@ bindings:
     skill: engineering-vulnerability-upgrade
     enabled: true
     locked: false
-    trigger: { type: detect, detector: agility_vuln_ticket, ask_if_unknown: true }
+    trigger: { type: detect, detector: vuln_report, ask_if_unknown: true }
   - id: tasks-vuln-upgrade
     stage: tasks
     skill: engineering-vulnerability-upgrade
     enabled: true
     locked: false
-    trigger: { type: detect, detector: agility_vuln_ticket }
+    trigger: { type: detect, detector: vuln_report }
   - id: impl-vuln-upgrade
     stage: implement.vuln-upgrade
     skill: engineering-vulnerability-upgrade

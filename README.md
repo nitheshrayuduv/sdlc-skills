@@ -12,7 +12,7 @@ sdlc-skills/
 │   ├── engineering-build/                   design, plan and build a feature; calls the companion skills
 │   ├── engineering-review/                  review a whole repository (standalone)
 │   ├── onboarding/                          explain a repository to new engineers (standalone)
-│   ├── engineering-vulnerability-upgrade/   fix vulnerable Gradle versions from an Agility ticket (needs the extension)
+│   ├── engineering-vulnerability-upgrade/   fix vulnerable Gradle versions from a vulnerability report (needs the extension)
 │   ├── grill-me/                            clarify interview (companion, vendored, MIT)
 │   ├── database-schema-designer/            data model design (companion, vendored, MIT)
 │   ├── api-designer/                        OpenAPI contract design (companion, vendored, MIT)
@@ -40,7 +40,7 @@ Each skill is stored once, in `skills/`. The extension holds no copies: at insta
 | I want to... | Use |
 | --- | --- |
 | Plan and build features with architecture, security, standards and vetted companion skills | [Install the Spec Kit extension and preset](#install-the-spec-kit-extension-and-preset), then [Use it](#use-it) |
-| Fix vulnerable Gradle versions listed in an Agility ticket | The extension, then [Vulnerability upgrade](#vulnerability-upgrade-from-an-agility-ticket) |
+| Fix vulnerable Gradle versions listed in a vulnerability report | The extension, then [Vulnerability upgrade](#vulnerability-upgrade-from-a-vulnerability-report) |
 | Add a skill to a stage (unit tests, security review) | [Add a skill to a stage](#add-a-skill-to-a-stage) |
 
 ## Install the Spec Kit extension and preset
@@ -99,7 +99,7 @@ Useful options:
 | Option | What it does |
 | --- | --- |
 | `--agent-skills .claude/skills` | Also copies every skill into your agent's skills folder, for use outside Spec Kit |
-| `--flows-config FILE` | Installs your team's vulnerability flow file ([Vulnerability upgrade](#vulnerability-upgrade-from-an-agility-ticket)) |
+| `--flows-config FILE` | Installs your team's vulnerability flow file ([Vulnerability upgrade](#vulnerability-upgrade-from-a-vulnerability-report)) |
 | `--profile strict` | Makes skill quality gates block a stage instead of warning |
 | `--repo PATH` | Installs into another folder instead of the current one |
 | `--repos-file repos.txt` | Installs into many repos, one result row each |
@@ -174,7 +174,7 @@ Engineering Build hooks run before and after each stage. They add the architectu
 | `plan` | api-designer | The feature adds or changes an API | `contracts/openapi.yaml` |
 | `tasks`, `implement` | playwright-expert | A UI flow needs an `[E2E]` test | `[E2E]` tasks, Page Objects and specs, rule checks |
 | `implement` | ponytail | Always, for every task | The smallest change that fully solves the task, and a note on what was skipped |
-| `plan`, `tasks`, `implement` | engineering-vulnerability-upgrade | A vulnerability ticket drives the feature | [Vulnerability upgrade](#vulnerability-upgrade-from-an-agility-ticket) |
+| `plan`, `tasks`, `implement` | engineering-vulnerability-upgrade | A vulnerability report drives the feature | [Vulnerability upgrade](#vulnerability-upgrade-from-a-vulnerability-report) |
 
 The preset calls each skill at the right point inside its stage. If the preset is missing or a call is skipped, the after-stage hooks run the skills themselves.
 
@@ -207,9 +207,9 @@ When a skill's tooling is missing (for example, no network for the API lint), th
 
 More detail: [extension README](speckit-extensions/engineering-build/README.md), [install](speckit-extensions/engineering-build/docs/install.md), [usage](speckit-extensions/engineering-build/docs/usage.md), [maintenance](speckit-extensions/engineering-build/docs/maintaining.md), [design spec](speckit-extensions/engineering-build/docs/specs/spec-kit-extension-spec.md).
 
-## Vulnerability upgrade from an Agility ticket
+## Vulnerability upgrade from a vulnerability report
 
-This workflow fixes vulnerable Gradle dependency versions listed in an Agility ticket, across a chain of repositories. Scripts do the exact work; the agent asks questions and reads the results. Design: [engineering-vulnerability-upgrade-spec.md](speckit-extensions/engineering-build/docs/specs/engineering-vulnerability-upgrade-spec.md).
+This workflow fixes vulnerable Gradle dependency versions listed in a vulnerability report, across a chain of repositories. The report can come from any source: a scanner export, or a ticket's text from any tracker, saved to a file or pasted in chat. Nothing is fetched from a tracker. Scripts do the exact work; the agent asks questions and reads the results. Design: [engineering-vulnerability-upgrade-spec.md](speckit-extensions/engineering-build/docs/specs/engineering-vulnerability-upgrade-spec.md).
 
 ### Your flow file
 
@@ -233,18 +233,13 @@ The format is in [flows.md](skills/engineering-vulnerability-upgrade/references/
 
 1. Install Engineering Build into the repo you will run from, usually the first repo of the chain, with `--flows-config`.
 2. Check out every repo of the flow under one folder, set as `workspace_root`. The tool never clones.
-3. Set the Agility connection in your shell, never in a file:
-
-```powershell
-$env:AGILITY_TOKEN = "<your Agility token>"
-$env:AGILITY_URL   = "https://<your-agility-host>/<instance>"
-```
+3. Sign in to GitHub with `gh auth login`, so the PRs can be opened.
 
 ### Run it
 
 | Step | Command | What happens |
 | --- | --- | --- |
-| 1 | `/speckit-engineering-build-vuln-intake` | Asks for the flow, ticket number, working branch and base branch. Reads the report, shows the findings table for you to confirm, and seeds `spec.md` |
+| 1 | `/speckit-engineering-build-vuln-intake` | Asks for the flow, ticket ID, the report (file or pasted), working branch and base branch. Reads the report, shows the findings table for you to confirm, and seeds `spec.md` |
 | 2 | `/speckit-specify`, `/speckit-clarify` | Normal stages on the seeded spec |
 | 3 | `/speckit-plan` | Finds where each vulnerable version is declared (`dependencies.conf`, `build.gradle`, property files, the platform repo's reference paths), decides which repo changes, and writes **Vulnerability Upgrade** in `plan.md` |
 | 4 | `/speckit-tasks` | One `[VULN]` task per changed repo, in build order |
@@ -253,7 +248,7 @@ $env:AGILITY_URL   = "https://<your-agility-host>/<instance>"
 
 ### Safety rules
 
-- Fixed versions come only from the ticket. Nothing is invented.
+- Fixed versions come only from the report. Nothing is invented.
 - The first failed build stops the chain and blocks all PRs.
 - Pushing a branch or opening a PR needs your confirmation. The tool never merges.
 - Operating-system packages in the report are listed as out of scope.
@@ -297,5 +292,5 @@ The suite checks manifests, hooks, bindings, lock integrity, packaging, the Play
 | `hash drift` from `verify_lock.py` | A skill was edited. Restore it, or review it and refresh the hashes ([Add a skill to a stage](#add-a-skill-to-a-stage)) |
 | Old `speckit-sdlc-skills-*` or `speckit-engineering-plan-*` commands still appear | Remove the older packages ([Update or remove](#update-or-remove)) |
 | The vulnerability intake lists only `main` | Your flow file was not installed; rerun with `--flows-config` |
-| The Agility step stops and asks for variables | Set `AGILITY_TOKEN` and `AGILITY_URL` in the shell, then rerun the intake |
+| The intake finds no findings in the report | Check the report has CVE rows with a fix version, or `group:artifact 1.2.3 -> 1.2.4` lines ([report format](skills/engineering-vulnerability-upgrade/references/report.md)) |
 | A repo folder is not found | Fix `workspace_root` in `vuln-flows.json`, or check the repo out there |

@@ -80,7 +80,10 @@ class StaticChecks(unittest.TestCase):
 
     def test_vuln_intake_always_asks_for_the_parent_branch_and_names_the_feature_folder(self):
         text = (EXT / 'commands' / 'vuln-intake.md').read_text(encoding='utf-8')
-        self.assertIn('4. **Base branch**', text)
+        self.assertIn('3. **Vulnerability report:**', text)
+        self.assertIn('read_report.py --report REPORT', text)
+        self.assertNotRegex(text.lower(), r'agility|token')
+        self.assertIn('5. **Base branch**', text)
         self.assertIn('created from', text)
         self.assertIn('Always ask', text)
         self.assertIn('--base PARENT', text)

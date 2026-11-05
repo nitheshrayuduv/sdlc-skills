@@ -12,7 +12,7 @@ Engineering Build across the whole Spec Kit workflow: architecture, design and d
 | tasks | `prepare-tasks`, `task-check` | playwright-expert (`tasks-e2e`) | Detector `ui_flows` says yes |
 | implement | `prepare-implement`, `verify` | ponytail (`impl-minimal`) | Always, for every task (level in `settings.level`) |
 | implement | | playwright-expert (`impl-e2e`) | `[E2E]` task, or a matching test path |
-| plan, tasks, implement | | engineering-vulnerability-upgrade (`*-vuln-upgrade`) | Detector `agility_vuln_ticket` says yes, or a `[VULN]` task |
+| plan, tasks, implement | | engineering-vulnerability-upgrade (`*-vuln-upgrade`) | Detector `vuln_report` says yes, or a `[VULN]` task |
 
 ## How the pieces fit
 

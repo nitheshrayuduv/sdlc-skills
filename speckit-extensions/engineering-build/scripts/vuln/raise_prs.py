@@ -7,7 +7,7 @@ from common import (UpgradeError, load_config, load_intake, load_json, main_wrap
 
 
 def pr_body(ticket, repo, flow, changes, siblings, footer=None):
-    lines = [f'Fixes the vulnerable dependency versions listed in Agility {ticket} ({flow} flow).', '',
+    lines = [f'Fixes the vulnerable dependency versions listed in {ticket} ({flow} flow).', '',
              '| Dependency | From | To | File |', '| --- | --- | --- | --- |']
     lines += [f"| {c['dependency']} | {c['old']} | {c['new']} | `{c['file']}` |" for c in changes]
     # A finding that did not come from the ticket says where it came from, so the PR does not overclaim.

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Validate the flow, Agility ticket and branch, and write intake.json.
+"""Validate the flow, ticket and branch, and write intake.json.
 
-Run it again with --base once the user has named the parent branch for a missing branch.
+The ticket is the work item ID in any tracker (for example PROJ-123 or 456); it names the
+default branch and the PRs. Run it again with --base once the user has named the parent branch for a missing branch.
 """
 import argparse
 import re
 
 from common import UpgradeError, flow_repos, load_config, main_wrapper, save_json, vuln_dir
 
-TICKET = re.compile(r'^[A-Z]{1,3}-\d{3,}$')
+TICKET = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$')  # safe inside a branch name
 
 
 def main():
@@ -24,9 +25,10 @@ def main():
     args = parser.parse_args()
     config = load_config(args.config)
     repos = flow_repos(config, args.flow)
-    ticket = args.ticket.strip().upper()
+    ticket = args.ticket.strip().lstrip('#')
     if not TICKET.match(ticket):
-        raise UpgradeError(f"'{args.ticket}' does not look like an Agility number such as D-12345 or S-12345.", 2)
+        raise UpgradeError(f"'{args.ticket}' is not a usable ticket ID: use letters, digits, '.', '_' or '-', "
+                           "for example PROJ-123.", 2)
     base_for = dict(item.split('=', 1) for item in args.base_for)
     unknown = [r for r in base_for if r not in repos]
     if unknown:
