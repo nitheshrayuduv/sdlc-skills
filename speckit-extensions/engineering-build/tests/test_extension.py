@@ -82,7 +82,7 @@ class StaticChecks(unittest.TestCase):
         text = (EXT / 'commands' / 'vuln-intake.md').read_text(encoding='utf-8')
         self.assertIn('3. **Vulnerability report:**', text)
         self.assertIn('read_report.py --report REPORT', text)
-        self.assertNotRegex(text, r'[A-Z]+_(TOKEN|URL)b')  # the report needs no credentials
+        self.assertNotRegex(text, r'[A-Z]+_(TOKEN|URL)\b')  # the report needs no credentials
         self.assertIn('5. **Base branch**', text)
         self.assertIn('created from', text)
         self.assertIn('Always ask', text)
