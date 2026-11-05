@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / 'scripts' / 'vuln'
 sys.path.insert(0, str(SCRIPTS))
 
-import agility_fetch  # noqa: E402
 import raise_prs  # noqa: E402
+import read_report  # noqa: E402
 
 PY = sys.executable
 TICKET_TEXT = ('<p>jackson: com.fasterxml.jackson.core:jackson-databind 2.13.0 -> 2.13.4.2 (CVE-2022-42003)</p>'
@@ -20,11 +20,9 @@ TICKET_TEXT = ('<p>jackson: com.fasterxml.jackson.core:jackson-databind 2.13.0 -
                '<p>mystery-lib 3.1.0</p>')
 
 
-def script(name, *args, cwd=None):
-    # Never let a developer's real Agility credentials reach a test run.
-    env = {k: v for k, v in os.environ.items() if not k.startswith('AGILITY_')}
+def script(name, *args, cwd=None, stdin=None):
     return subprocess.run([PY, '-B', str(SCRIPTS / name), *map(str, args)], capture_output=True, text=True, cwd=cwd,
-                          env=env)
+                          input=stdin)
 
 
 def git(repo, *args):
@@ -33,7 +31,7 @@ def git(repo, *args):
 
 class ParsingTests(unittest.TestCase):
     def test_arrow_and_keyword_forms(self):
-        found = {f['dependency']: f for f in agility_fetch.parse_findings(TICKET_TEXT) if f['dependency']}
+        found = {f['dependency']: f for f in read_report.parse_findings(TICKET_TEXT) if f['dependency']}
         jackson = found['com.fasterxml.jackson.core:jackson-databind']
         self.assertEqual((jackson['vulnerable_version'], jackson['fixed_version']), ('2.13.0', '2.13.4.2'))
         self.assertEqual(jackson['advisory'], 'CVE-2022-42003')
@@ -41,13 +39,27 @@ class ParsingTests(unittest.TestCase):
         self.assertEqual((snake['vulnerable_version'], snake['fixed_version']), ('1.30', '1.33'))
 
     def test_incomplete_line_needs_confirmation(self):
-        item = [f for f in agility_fetch.parse_findings(TICKET_TEXT) if f['dependency'] is None][0]
+        item = [f for f in read_report.parse_findings(TICKET_TEXT) if f['dependency'] is None][0]
         self.assertEqual(item['status'], 'needs-confirmation')
 
-    def test_missing_token_fails_without_leaking(self):
-        result = script('agility_fetch.py', '--ticket', 'D-12345', '--out', 'x.json')
+    def test_report_is_read_from_a_file_or_stdin(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / 'ticket.json'
+            report.write_text(json.dumps({'title': 'Upgrade jackson', 'description': TICKET_TEXT}))
+            out = Path(tmp) / 'findings.json'
+            done = script('read_report.py', '--report', report, '--ticket', 'PROJ-123', '--out', out)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            data = json.loads(out.read_text())
+            self.assertEqual((data['ticket'], data['title']), ('PROJ-123', 'Upgrade jackson'))
+            self.assertEqual(len(data['findings']), 3)
+            done = script('read_report.py', '--report', '-', '--out', out, stdin=TICKET_TEXT)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertIsNone(json.loads(out.read_text())['ticket'])
+
+    def test_missing_report_fails_clearly(self):
+        result = script('read_report.py', '--report', 'no-such-report.txt', '--out', 'x.json')
         self.assertEqual(result.returncode, 2)
-        self.assertIn('AGILITY_TOKEN', result.stderr)
+        self.assertIn('Cannot read the report', result.stderr)
 
 
 REPORT = (
@@ -64,14 +76,14 @@ REPORT = (
 
 class ReportTests(unittest.TestCase):
     def test_scanner_report(self):
-        found = agility_fetch.parse_findings(REPORT)
+        found = read_report.parse_findings(REPORT)
         by_name = {f['dependency']: f for f in found}
         client = by_name['org.example:messaging-client']
         self.assertEqual((client['status'], client['fixed_version']), ('ok', '5.36.1'))  # highest fix covers both CVEs
         self.assertEqual(client['advisories'], ['CVE-2026-106121', 'CVE-2026-106122'])
         self.assertEqual(client['images'], ['app-image', 'worker-image'])
         self.assertEqual(by_name['libbrotli1']['status'], 'out-of-scope')
-        self.assertEqual(agility_fetch.flow_hint(REPORT), 'main')
+        self.assertEqual(read_report.flow_hint(REPORT), 'main')
 
 
 class FlowTests(unittest.TestCase):
@@ -104,7 +116,7 @@ class FlowTests(unittest.TestCase):
              'advisory': None, 'status': 'ok'}]
         self.findings = self.feature / 'vuln' / 'findings.json'
         self.findings.parent.mkdir(parents=True)
-        self.findings.write_text(json.dumps({'ticket': 'D-12345', 'findings': findings}))
+        self.findings.write_text(json.dumps({'ticket': 'PROJ-123', 'findings': findings}))
 
     def make_repo(self, name, files):
         repo = self.ws / name
@@ -151,7 +163,7 @@ class FlowTests(unittest.TestCase):
 
     def prepare(self, *extra):
         return self.run_script('prepare_branches.py', '--feature-dir', self.feature, '--workspace', self.ws,
-                               '--flow', 'main', '--branch', 'vuln/D-12345', *extra)
+                               '--flow', 'main', '--branch', 'vuln/PROJ-123', *extra)
 
     def test_missing_branch_asks_for_parent_then_creates_from_it(self):
         git(self.ws / 'service-a', 'branch', 'release/1.4')
@@ -166,16 +178,16 @@ class FlowTests(unittest.TestCase):
         done = self.prepare('--base', 'release/1.4')
         self.assertEqual(done.returncode, 0, done.stderr)
         for repo in ('shared-lib', 'service-a', 'service-b'):
-            self.assertEqual(self.current_branch(repo), 'vuln/D-12345')
+            self.assertEqual(self.current_branch(repo), 'vuln/PROJ-123')
         bases = json.loads((self.feature / 'vuln' / 'branches.json').read_text())['bases']
         self.assertEqual(bases['service-a'], 'release/1.4')
 
     def test_existing_branch_is_reused(self):
         for repo in ('shared-lib', 'service-a', 'service-b'):
-            git(self.ws / repo, 'branch', 'vuln/D-12345')
+            git(self.ws / repo, 'branch', 'vuln/PROJ-123')
         self.assertIn('exists in every repo', self.prepare('--check-only').stdout)
         self.assertEqual(self.prepare().returncode, 0)
-        self.assertEqual(self.current_branch('service-b'), 'vuln/D-12345')
+        self.assertEqual(self.current_branch('service-b'), 'vuln/PROJ-123')
 
     def test_handoff_is_used_by_next_build_then_restored(self):
         (self.ws / 'shared-lib' / 'gradle.properties').write_text('version=9.9.9\n')
@@ -253,7 +265,7 @@ class FlowTests(unittest.TestCase):
                              for frm, key, to in (rules or [])]
         self.config.write_text(json.dumps(config))
         changes = self.feature / 'vuln' / 'changes.json'
-        changes.write_text(json.dumps({'ticket': 'D-12345', 'flow': 'main',
+        changes.write_text(json.dumps({'ticket': 'PROJ-123', 'flow': 'main',
                                        'changes': [{'repo': r} for r in changed]}))
         result = self.run_script('build_chain.py', '--flow', 'main', '--feature-dir', self.feature,
                                  '--workspace', self.ws, '--changed-only', '--dry-run', *extra)
@@ -304,13 +316,13 @@ class FlowTests(unittest.TestCase):
         (self.ws / 'service-b' / 'gradle').mkdir(exist_ok=True)
         (self.ws / 'service-b' / 'gradle' / 'dependencies.conf').write_bytes(crlf_conf)
         for repo in ('service-a', 'service-b'):
-            git(self.ws / repo, 'checkout', '-q', '-b', 'vuln/D-12345')
+            git(self.ws / repo, 'checkout', '-q', '-b', 'vuln/PROJ-123')
         changes = self.feature / 'vuln' / 'changes.json'
-        changes.write_text(json.dumps({'ticket': 'D-12345', 'flow': 'main', 'changes': [
+        changes.write_text(json.dumps({'ticket': 'PROJ-123', 'flow': 'main', 'changes': [
             {'repo': 'service-a', 'file': 'gradle.properties', 'line': 2, 'key': 'lz4JavaVersion',
              'old': '1.11.1', 'new': '1.11.4'}]}))
         applied = self.run_script('apply_upgrade.py', '--changes', changes, '--workspace', self.ws,
-                                  '--branch', 'vuln/D-12345', '--allow-dirty',
+                                  '--branch', 'vuln/PROJ-123', '--allow-dirty',
                                   '--out', self.feature / 'vuln' / 'applied.json')
         self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
         self.assertEqual((self.ws / 'service-a' / 'gradle.properties').read_bytes(),
@@ -354,7 +366,7 @@ class FlowTests(unittest.TestCase):
                                       'key': 'sharedLibVersion'}]}]
         self.config.write_text(json.dumps(config))
         (self.feature / 'vuln' / 'changes.json').write_text(json.dumps(
-            {'ticket': 'D-12345', 'flow': 'main', 'changes': [{'repo': 'shared-lib'}]}))
+            {'ticket': 'PROJ-123', 'flow': 'main', 'changes': [{'repo': 'shared-lib'}]}))
         result = self.run_script('build_chain.py', '--flow', 'main', '--feature-dir', self.feature,
                                  '--workspace', self.ws, '--changed-only', '--from-repo', 'service-a')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -494,7 +506,7 @@ class FlowTests(unittest.TestCase):
         self.assertEqual((self.ws / 'service-a' / 'gradle.properties').read_text(), 'unrelated=2.13.0\n')
         self.assertEqual((self.ws / 'service-b' / 'build.gradle').read_text(),
                          "implementation 'org.yaml:snakeyaml:1.35'\n")
-        self.assertEqual(self.current_branch('service-a'), 'vuln/D-12345')
+        self.assertEqual(self.current_branch('service-a'), 'vuln/PROJ-123')
 
     def default_branch(self, repo):
         return self.current_branch(repo)
@@ -503,7 +515,7 @@ class FlowTests(unittest.TestCase):
         self.locate()
         changes, applied = self.feature / 'vuln' / 'changes.json', self.feature / 'vuln' / 'apply.json'
         wrong = self.run_script('apply_upgrade.py', '--changes', changes, '--workspace', self.ws, '--out', applied,
-                                '--branch', 'vuln/D-12345')
+                                '--branch', 'vuln/PROJ-123')
         self.assertEqual(wrong.returncode, 2)
         (self.ws / 'service-a' / 'scratch.txt').write_text('x')
         dirty = self.prepare('--base', self.default_branch('service-a'))
@@ -542,24 +554,24 @@ class FlowTests(unittest.TestCase):
     def test_pr_plan_targets_the_intake_parent_branch_and_names_non_ticket_sources(self):
         vuln = self.feature / 'vuln'
         (vuln / 'build-results.json').write_text(json.dumps({'all_passed': True}))
-        (vuln / 'intake.json').write_text(json.dumps({'flow': 'main', 'ticket': 'D-12345', 'branch': 'vuln/D-12345',
+        (vuln / 'intake.json').write_text(json.dumps({'flow': 'main', 'ticket': 'PROJ-123', 'branch': 'vuln/PROJ-123',
                                                       'base': 'release/1.4', 'base_for': {'service-b': 'master'}}))
-        (vuln / 'branches.json').write_text(json.dumps({'branch': 'vuln/D-12345', 'states': {}, 'missing': []}))
+        (vuln / 'branches.json').write_text(json.dumps({'branch': 'vuln/PROJ-123', 'states': {}, 'missing': []}))
         (vuln / 'apply-results.json').write_text(json.dumps({'repos': {
-            'service-a': {'branch': 'vuln/D-12345', 'files': ['a.conf']},
-            'service-b': {'branch': 'vuln/D-12345', 'files': ['b.conf']}}}))
-        (vuln / 'changes.json').write_text(json.dumps({'ticket': 'D-12345', 'flow': 'main', 'changes': [
+            'service-a': {'branch': 'vuln/PROJ-123', 'files': ['a.conf']},
+            'service-b': {'branch': 'vuln/PROJ-123', 'files': ['b.conf']}}}))
+        (vuln / 'changes.json').write_text(json.dumps({'ticket': 'PROJ-123', 'flow': 'main', 'changes': [
             {'repo': 'service-a', 'dependency': 'g:a', 'old': '1', 'new': '2', 'file': 'a.conf'},
             {'repo': 'service-b', 'dependency': 'g:b', 'old': '1', 'new': '2', 'file': 'b.conf', 'source': 'a Trivy scan'}]}))
         plan = self.run_script('raise_prs.py', '--feature-dir', self.feature, '--workspace', self.ws)
         self.assertEqual(plan.returncode, 0, plan.stdout + plan.stderr)
-        self.assertIn('service-a: branch vuln/D-12345 -> release/1.4', plan.stdout)
-        self.assertIn('service-b: branch vuln/D-12345 -> master', plan.stdout)
+        self.assertIn('service-a: branch vuln/PROJ-123 -> release/1.4', plan.stdout)
+        self.assertIn('service-b: branch vuln/PROJ-123 -> master', plan.stdout)
         self.assertIn('Nothing pushed', plan.stdout)
-        body = raise_prs.pr_body('D-12345', 'service-b', 'main',
+        body = raise_prs.pr_body('PROJ-123', 'service-b', 'main',
                                  [{'dependency': 'g:b', 'old': '1', 'new': '2', 'file': 'b.conf', 'source': 'a Trivy scan'}],
                                  {}, 'footer line')
-        self.assertIn('`g:b` is not listed in D-12345; it comes from a Trivy scan', body)
+        self.assertIn('`g:b` is not listed in PROJ-123; it comes from a Trivy scan', body)
         self.assertTrue(body.endswith('footer line'))
 
     def test_check_only_keeps_the_recorded_parent_branches(self):
@@ -571,13 +583,16 @@ class FlowTests(unittest.TestCase):
         self.assertEqual(bases.get('service-a'), 'release/1.4')
 
     def test_intake_validation(self):
-        bad = self.run_script('intake.py', '--flow', 'main', '--ticket', 'nope', '--feature-dir', self.feature)
+        for ticket in ('not a ticket', '../x', ''):
+            bad = self.run_script('intake.py', '--flow', 'main', '--ticket', ticket, '--feature-dir', self.feature)
+            self.assertEqual(bad.returncode, 2, ticket)
+        bad = self.run_script('intake.py', '--flow', 'other', '--ticket', 'PROJ-123', '--feature-dir', self.feature)
         self.assertEqual(bad.returncode, 2)
-        bad = self.run_script('intake.py', '--flow', 'other', '--ticket', 'D-12345', '--feature-dir', self.feature)
-        self.assertEqual(bad.returncode, 2)
-        good = self.run_script('intake.py', '--flow', 'main', '--ticket', 'd-12345', '--feature-dir', self.feature)
-        self.assertEqual(good.returncode, 0, good.stderr)
-        self.assertEqual(json.loads((self.feature / 'vuln' / 'intake.json').read_text())['ticket'], 'D-12345')
+        for ticket, kept in (('#PROJ-123', 'PROJ-123'), ('456', '456')):
+            good = self.run_script('intake.py', '--flow', 'main', '--ticket', ticket, '--feature-dir', self.feature)
+            self.assertEqual(good.returncode, 0, good.stderr)
+            intake = json.loads((self.feature / 'vuln' / 'intake.json').read_text())
+            self.assertEqual((intake['ticket'], intake['branch']), (kept, 'vuln/' + kept))
 
 
 if __name__ == '__main__':

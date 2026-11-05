@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
-"""Read an Agility ticket and write the vulnerable and fixed versions it lists.
+"""Read a vulnerability report and write the vulnerable and fixed versions it lists.
 
-The ticket description holds a scanner report: one "IMAGE - name : VERSION/TAG - tag" heading per
-image, then rows of CVE, severity, impacted package, version, fix version and file path. Free-text
-lines such as "group:artifact 1.2.3 -> 1.2.4" are understood as a fallback.
-
-The token is read from AGILITY_TOKEN and the server from AGILITY_URL (for example
-https://<your-agility-host>/<instance>). Neither is ever written to a file or log.
+The report comes from any source: a scanner export, or the text of a ticket in any tracker, saved
+to a file (plain text, HTML, or JSON with "title"/"name" and "description"/"body"), or piped on
+stdin with --report -. It holds one "IMAGE - name : VERSION/TAG - tag" heading per image, then
+rows of CVE, severity, impacted package, version, fix version and file path. Free-text lines such
+as "group:artifact 1.2.3 -> 1.2.4" are understood as a fallback. Nothing is fetched over the network.
 """
 import argparse
 import html
 import json
-import os
 import re
-import urllib.error
-import urllib.parse
-import urllib.request
+import sys
 
-from common import VERSION, UpgradeError, compare_versions, main_wrapper, redact, save_json
+from common import VERSION, UpgradeError, compare_versions, main_wrapper, save_json
 
 GROUP_ARTIFACT = re.compile(r'\b([A-Za-z][\w.\-]*:[A-Za-z][\w.\-]*)\b')
 ADVISORY = re.compile(r'\b(CVE-\d{4}-\d{4,}|GHSA(?:-[a-z0-9]{4}){3})\b', re.IGNORECASE)
@@ -27,7 +23,6 @@ TABLE_ROW = re.compile(r'^\s*(?:CVE-\d{4}-\d+|GHSA-[\w-]+)\b', re.IGNORECASE)
 IMAGE = re.compile(r'IMAGE\s*-\s*(\S+)\s*:\s*VERSION/TAG\s*-\s*(\S+)', re.IGNORECASE)
 REPORT_FLOW = re.compile(r'vulnerability\s+report\s+of\s+(\w+)', re.IGNORECASE)
 SEVERITY_ORDER = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
-ASSET_TYPES = ('Story', 'Defect', 'Issue')
 OS_REASON = 'Operating-system package in the container image. Fix it by updating the base image, not Gradle.'
 
 
@@ -128,56 +123,49 @@ def parse_findings(raw):
 
 
 def flow_hint(raw):
-    match = REPORT_FLOW.search(to_text(raw))
     """The flow named in the report header, lower-cased; a hint only, checked against the config by intake."""
+    match = REPORT_FLOW.search(to_text(raw))
     return match.group(1).lower() if match else None
 
 
-def fetch_ticket(ticket):
-    token, base = os.environ.get('AGILITY_TOKEN'), os.environ.get('AGILITY_URL')
-    if not token or not base:
-        raise UpgradeError('Set AGILITY_TOKEN and AGILITY_URL before reading a ticket.', 2)
-    for asset in ASSET_TYPES:
-        query = urllib.parse.urlencode({'where': f"Number='{ticket}'", 'sel': 'Name,Description'})
-        request = urllib.request.Request(
-            f"{base.rstrip('/')}/rest-1.v1/Data/{asset}?{query}",
-            headers={'Authorization': f'Bearer {token}', 'Accept': 'application/json'})
+def read_report(path):
+    """Return (title, body) from a report file, or from stdin for '-'."""
+    try:
+        if path == '-':
+            raw = sys.stdin.read()
+        else:
+            with open(path, encoding='utf-8-sig') as handle:
+                raw = handle.read()
+    except OSError as err:
+        raise UpgradeError(f'Cannot read the report {path}: {err.strerror}.', 2)
+    if raw.lstrip().startswith('{'):
         try:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                body = json.load(response)
-        except urllib.error.HTTPError as err:
-            raise UpgradeError(f'Agility returned HTTP {err.code} for {ticket}.', 3)
-        except (urllib.error.URLError, TimeoutError) as err:
-            raise UpgradeError(redact(f'Could not reach Agility: {err}'), 3)
-        assets = body.get('Assets') or []
-        if assets:
-            attrs = assets[0].get('Attributes', {})
-            return {'type': asset, 'name': (attrs.get('Name') or {}).get('value') or '',
-                    'description': (attrs.get('Description') or {}).get('value') or ''}
-    raise UpgradeError(f'Ticket {ticket} was not found in Agility.', 3)
+            data = json.loads(raw)
+        except ValueError:
+            data = None
+        if isinstance(data, dict):
+            return (data.get('title') or data.get('name') or '',
+                    data.get('description') or data.get('body') or '')
+    return '', raw
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--ticket', required=True)
+    parser.add_argument('--report', required=True, help="report file (text, HTML or JSON), or '-' for stdin")
+    parser.add_argument('--ticket', help='work item the report belongs to, in any tracker (kept as a reference)')
     parser.add_argument('--out', required=True, help='findings.json to write')
-    parser.add_argument('--fixture', help='JSON file with name and description, used instead of calling Agility')
     args = parser.parse_args()
-    if args.fixture:
-        with open(args.fixture, encoding='utf-8') as handle:
-            ticket = json.load(handle)
-    else:
-        ticket = fetch_ticket(args.ticket)
-    body = ticket.get('name', '') + '\n' + ticket.get('description', '')
+    title, description = read_report(args.report)
+    body = title + '\n' + description
     findings = parse_findings(body)
-    save_json(args.out, {'ticket': args.ticket, 'title': ticket.get('name', ''),
+    save_json(args.out, {'ticket': args.ticket, 'title': title,
                          'flow_hint': flow_hint(body), 'findings': findings})
     counts = {}
     for finding in findings:
         counts[finding['status']] = counts.get(finding['status'], 0) + 1
     print(f'{len(findings)} finding(s) {counts} -> {args.out}')
     if not findings:
-        raise UpgradeError('No vulnerable and fixed versions were found in the ticket.', 4)
+        raise UpgradeError('No vulnerable and fixed versions were found in the report.', 4)
 
 
 if __name__ == '__main__':

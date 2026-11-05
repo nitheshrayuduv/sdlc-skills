@@ -2,7 +2,7 @@
 
 SDLC skills for coding agents, plus one Spec Kit extension that runs them at the right stage of a feature.
 
-You install Spec Kit in your own repository, then run `installer/install.py` from this repository. That adds the **engineering-build** extension, its preset, and the skills it uses.
+Install Spec Kit in your repository, then run this repository's `speckit-extensions/install.py` from your repository's root. It adds the **engineering-build** extension, its preset, and the skills it uses. See [Install the Spec Kit extension and preset](#install-the-spec-kit-extension-and-preset).
 
 ## Repository layout
 
@@ -12,40 +12,42 @@ sdlc-skills/
 │   ├── engineering-build/                   design, plan and build a feature; calls the companion skills
 │   ├── engineering-review/                  review a whole repository (standalone)
 │   ├── onboarding/                          explain a repository to new engineers (standalone)
-│   ├── engineering-vulnerability-upgrade/   fix vulnerable Gradle versions from an Agility ticket (companion)
+│   ├── engineering-vulnerability-upgrade/   fix vulnerable Gradle versions from a vulnerability report (needs the extension)
 │   ├── grill-me/                            clarify interview (companion, vendored, MIT)
 │   ├── database-schema-designer/            data model design (companion, vendored, MIT)
 │   ├── api-designer/                        OpenAPI contract design (companion, vendored, MIT)
 │   ├── playwright-expert/                   end-to-end tests (companion, vendored, MIT)
 │   └── ponytail/                            smallest complete change at implement (companion, vendored, MIT)
-├── speckit-extensions/
-│   └── engineering-build/                   the Spec Kit extension
-│       ├── extension.yml                    commands and the 12 stage hooks
-│       ├── hooks.md                         rules every hook follows
-│       ├── commands/                        prepare-*, after-stage checks, run, vuln-intake, vuln-pr
-│       ├── config/                          binding registry, example vuln-flows.json
-│       ├── adapters/, detectors/            how each skill reads Spec Kit files; when it applies
-│       ├── scripts/                         lock check, Playwright rule check, vulnerability scripts
-│       ├── skills.lock.yml                  the skills it ships, pinned by SHA-256
-│       ├── preset/                          wraps clarify, plan, tasks, implement
-│       └── docs/, tests/                    source only, not installed
-├── installer/install.py                     installs extension + preset + skills into a repo
-├── docs/specs/                              design specs
-└── catalog/                                 template entry for an internal Spec Kit catalog
+└── speckit-extensions/
+    ├── install.py                           installs extension + preset + skills into a Spec Kit repo
+    ├── catalog.json                         template entry for an internal Spec Kit catalog
+    └── engineering-build/                   the Spec Kit extension
+        ├── extension.yml                    commands and the 12 stage hooks
+        ├── hooks.md                         rules every hook follows
+        ├── commands/                        prepare-*, after-stage checks, run, vuln-intake, vuln-pr
+        ├── config/                          binding registry, example vuln-flows.json
+        ├── adapters/, detectors/            how each skill reads Spec Kit files; when it applies
+        ├── scripts/                         lock check, Playwright rule check, vulnerability scripts
+        ├── skills.lock.yml                  the skills it ships, pinned by SHA-256
+        ├── preset/                          the preset: wraps clarify, plan, tasks, implement
+        └── docs/, tests/                    usage docs, design specs and tests (source only, not installed)
 ```
 
-Each skill is stored once, in `skills/`. The extension holds no copies. At install time the installer copies the skills listed in `skills.lock.yml` into the target repository and checks their hashes.
+Each skill is stored once, in `skills/`. The extension holds no copies: at install time the installer copies the skills listed in `skills.lock.yml` into the target repository and checks their hashes.
 
 ## Which part do I need?
 
 | I want to... | Use |
 | --- | --- |
-| Plan and build features with architecture, security, standards and vetted companion skills | Engineering Build in Spec Kit (sections 1 to 3) |
-| Fix vulnerable Gradle versions listed in an Agility ticket | The vulnerability workflow (section 4) |
-| Review a repository, or explain one to new engineers | `engineering-review` or `onboarding` on their own (section 5) |
-| Add a skill to a stage (unit tests, security review) | The binding registry (section 6) |
+| Plan and build features with architecture, security, standards and vetted companion skills | [Install the Spec Kit extension and preset](#install-the-spec-kit-extension-and-preset), then [Use it](#use-it) |
+| Fix vulnerable Gradle versions listed in a vulnerability report | The extension, then [Vulnerability upgrade](#vulnerability-upgrade-from-a-vulnerability-report) |
+| Add a skill to a stage (unit tests, security review) | [Add a skill to a stage](#add-a-skill-to-a-stage) |
 
-## 1. Install Spec Kit in your repository
+## Install the Spec Kit extension and preset
+
+The extension and its preset are installed together: the preset requires the extension, and the extension needs its skills staged in. `install.py` does all three in the right order.
+
+### 1. Install Spec Kit in your repository
 
 You need Python 3.10+, Git and the Spec Kit CLI 1.2.0 or later (`specify --version`):
 
@@ -62,23 +64,31 @@ specify init --here --integration claude
 
 Use `copilot` or `codex` instead of `claude` if needed. Add `--ignore-agent-tools` if the agent's CLI is not installed (for example, you use the desktop app), and `--script ps` on Windows.
 
-## 2. Install Engineering Build
+### 2. Run the installer from your repository's root
 
-From a clone of this repository, kept outside your repository:
+Stay in your repository's root. Clone this repository next to it (not inside it):
 
 ```bash
-python installer/install.py install --repo /path/to/your-repo --dry-run
+git clone https://github.com/nitheshrayuduv/sdlc-skills.git ../sdlc-skills
 ```
 
+Preview the install. The installer changes the folder you run it from:
+
 ```bash
-python installer/install.py install --repo /path/to/your-repo
+python ../sdlc-skills/speckit-extensions/install.py install --dry-run
+```
+
+Then install:
+
+```bash
+python ../sdlc-skills/speckit-extensions/install.py install
 ```
 
 The installer:
 
 1. Checks that the target has `.specify/` and a supported `specify` version.
 2. Stages the extension with its locked skills and verifies every hash.
-3. Adds the extension, then the preset (priority 5).
+3. Adds the extension (`specify extension add`), then the preset (`specify preset add`, priority 5).
 4. Creates `engineering-build-config.yml` only if it is missing.
 5. Checks that `clarify`, `plan`, `tasks` and `implement` resolve to the preset.
 
@@ -89,11 +99,13 @@ Useful options:
 | Option | What it does |
 | --- | --- |
 | `--agent-skills .claude/skills` | Also copies every skill into your agent's skills folder, for use outside Spec Kit |
-| `--flows-config FILE` | Installs your team's vulnerability flow file (section 4) |
+| `--flows-config FILE` | Installs your team's vulnerability flow file ([Vulnerability upgrade](#vulnerability-upgrade-from-a-vulnerability-report)) |
 | `--profile strict` | Makes skill quality gates block a stage instead of warning |
+| `--repo PATH` | Installs into another folder instead of the current one |
 | `--repos-file repos.txt` | Installs into many repos, one result row each |
+| `--source bundle --bundle file.zip` | Installs a release zip built with `install.py package`, offline |
 
-Other commands are `update`, `verify`, `status`, `uninstall` and `package`. Details are in [installer/README.md](installer/README.md).
+### 3. Configure and verify
 
 Restart your agent, then add the Engineering Build principle to the constitution once:
 
@@ -101,9 +113,33 @@ Restart your agent, then add the Engineering Build principle to the constitution
 /speckit-engineering-build-configure
 ```
 
+Check the install:
+
+```bash
+python ../sdlc-skills/speckit-extensions/install.py verify
+```
+
+```bash
+specify preset resolve speckit.plan
+```
+
+`speckit.plan` should resolve to `engineering-build-preset`.
+
 Claude spells Spec Kit commands with hyphens (`/speckit-plan`); some agents use dots (`/speckit.plan`).
 
-If you used the older packages, remove them first. The installer warns if they are still present:
+### Update or remove
+
+```bash
+python ../sdlc-skills/speckit-extensions/install.py update
+```
+
+```bash
+python ../sdlc-skills/speckit-extensions/install.py uninstall
+```
+
+`update` keeps your project config and flow settings. `uninstall` leaves feature documents and constitution text in place. If you cloned this repository somewhere else, replace `../sdlc-skills` with that path. All commands and options: [speckit-extensions/README.md](speckit-extensions/README.md).
+
+If you used the older packages, remove them before installing. The installer warns if they are still present:
 
 ```bash
 specify preset remove org-sdlc
@@ -117,7 +153,7 @@ specify extension remove sdlc-skills --keep-config
 specify extension remove engineering-plan
 ```
 
-## 3. Use it
+## Use it
 
 Run the normal Spec Kit commands:
 
@@ -138,7 +174,7 @@ Engineering Build hooks run before and after each stage. They add the architectu
 | `plan` | api-designer | The feature adds or changes an API | `contracts/openapi.yaml` |
 | `tasks`, `implement` | playwright-expert | A UI flow needs an `[E2E]` test | `[E2E]` tasks, Page Objects and specs, rule checks |
 | `implement` | ponytail | Always, for every task | The smallest change that fully solves the task, and a note on what was skipped |
-| `plan`, `tasks`, `implement` | engineering-vulnerability-upgrade | A vulnerability ticket drives the feature | Section 4 |
+| `plan`, `tasks`, `implement` | engineering-vulnerability-upgrade | A vulnerability report drives the feature | [Vulnerability upgrade](#vulnerability-upgrade-from-a-vulnerability-report) |
 
 The preset calls each skill at the right point inside its stage. If the preset is missing or a call is skipped, the after-stage hooks run the skills themselves.
 
@@ -169,11 +205,11 @@ Here `enabled: false` turns the api-designer skill off for this repository. `imp
 
 When a skill's tooling is missing (for example, no network for the API lint), the stage records a warning and continues. Set `required: true` on a binding, or install with `--profile strict`, to stop the stage instead.
 
-More detail: [extension README](speckit-extensions/engineering-build/README.md), [install](speckit-extensions/engineering-build/docs/install.md), [usage](speckit-extensions/engineering-build/docs/usage.md), [maintenance](speckit-extensions/engineering-build/docs/maintaining.md).
+More detail: [extension README](speckit-extensions/engineering-build/README.md), [install](speckit-extensions/engineering-build/docs/install.md), [usage](speckit-extensions/engineering-build/docs/usage.md), [maintenance](speckit-extensions/engineering-build/docs/maintaining.md), [design spec](speckit-extensions/engineering-build/docs/specs/spec-kit-extension-spec.md).
 
-## 4. Vulnerability upgrade from an Agility ticket
+## Vulnerability upgrade from a vulnerability report
 
-This workflow fixes vulnerable Gradle dependency versions listed in an Agility ticket, across a chain of repositories. Scripts do the exact work; the agent asks questions and reads the results. Design: [engineering-vulnerability-upgrade-spec.md](docs/specs/engineering-vulnerability-upgrade-spec.md).
+This workflow fixes vulnerable Gradle dependency versions listed in a vulnerability report, across a chain of repositories. The report can come from any source: a scanner export, or a ticket's text from any tracker, saved to a file or pasted in chat. Nothing is fetched from a tracker. Scripts do the exact work; the agent asks questions and reads the results. Design: [engineering-vulnerability-upgrade-spec.md](speckit-extensions/engineering-build/docs/specs/engineering-vulnerability-upgrade-spec.md).
 
 ### Your flow file
 
@@ -185,10 +221,10 @@ All repository knowledge lives in `vuln-flows.json`:
 
 The copy in this repository (`speckit-extensions/engineering-build/config/vuln-flows.json`) is a neutral example with one flow: `shared-lib`, then `service-a` and `service-b`.
 
-Keep your team's real file outside this public repository. A git-ignored `private/` folder in your clone works. Then pass it at install time. `update` keeps the project's flows afterwards.
+Keep your team's real file outside this repository and its clone (it names your real repos). Pass it at install time. `update` keeps the project's flows afterwards.
 
 ```bash
-python installer/install.py install --repo /path/to/your-repo --flows-config /path/to/vuln-flows.json
+python ../sdlc-skills/speckit-extensions/install.py install --flows-config /path/to/vuln-flows.json
 ```
 
 The format is in [flows.md](skills/engineering-vulnerability-upgrade/references/flows.md).
@@ -197,18 +233,13 @@ The format is in [flows.md](skills/engineering-vulnerability-upgrade/references/
 
 1. Install Engineering Build into the repo you will run from, usually the first repo of the chain, with `--flows-config`.
 2. Check out every repo of the flow under one folder, set as `workspace_root`. The tool never clones.
-3. Set the Agility connection in your shell, never in a file:
-
-```powershell
-$env:AGILITY_TOKEN = "<your Agility token>"
-$env:AGILITY_URL   = "https://<your-agility-host>/<instance>"
-```
+3. Sign in to GitHub with `gh auth login`, so the PRs can be opened.
 
 ### Run it
 
 | Step | Command | What happens |
 | --- | --- | --- |
-| 1 | `/speckit-engineering-build-vuln-intake` | Asks for the flow, ticket number, working branch and base branch. Reads the report, shows the findings table for you to confirm, and seeds `spec.md` |
+| 1 | `/speckit-engineering-build-vuln-intake` | Asks for the flow, ticket ID, the report (file or pasted), working branch and base branch. Reads the report, shows the findings table for you to confirm, and seeds `spec.md` |
 | 2 | `/speckit-specify`, `/speckit-clarify` | Normal stages on the seeded spec |
 | 3 | `/speckit-plan` | Finds where each vulnerable version is declared (`dependencies.conf`, `build.gradle`, property files, the platform repo's reference paths), decides which repo changes, and writes **Vulnerability Upgrade** in `plan.md` |
 | 4 | `/speckit-tasks` | One `[VULN]` task per changed repo, in build order |
@@ -217,7 +248,7 @@ $env:AGILITY_URL   = "https://<your-agility-host>/<instance>"
 
 ### Safety rules
 
-- Fixed versions come only from the ticket. Nothing is invented.
+- Fixed versions come only from the report. Nothing is invented.
 - The first failed build stops the chain and blocks all PRs.
 - Pushing a branch or opening a PR needs your confirmation. The tool never merges.
 - Operating-system packages in the report are listed as out of scope.
@@ -225,25 +256,7 @@ $env:AGILITY_URL   = "https://<your-agility-host>/<instance>"
 
 Results go to `specs/<feature>/vuln/`: `findings.json`, `changes.json`, `build-results.json`, the logs and `pr-results.json`. The scripts are in `speckit-extensions/engineering-build/scripts/vuln/` (Python standard library only), and each can run alone with `--dry-run`.
 
-## 5. Skills on their own
-
-Every folder in `skills/` is a normal agent skill. Install them with `--agent-skills` (section 2), or copy a folder into your agent's skills folder. For Claude Code that is `~/.claude/skills/` (all projects) or `<repo>/.claude/skills/` (one project):
-
-```bash
-cp -r /path/to/sdlc-skills/skills/onboarding ~/.claude/skills/
-```
-
-| Skill | Use it to | Example request |
-| --- | --- | --- |
-| `engineering-build` | Plan and build one feature without Spec Kit. It applies the companion skills by hand when they are installed next to it | "Use engineering-build to plan adding rate limiting" |
-| `engineering-review` | Review a whole repository for technical debt, defects and gaps, with source-backed findings and prioritized fixes | "Review this repository with the engineering-review skill" |
-| `onboarding` | Explain an existing repository: architecture, flows, database schema, APIs, modules, standards | "Use the onboarding skill to document how this repo works" |
-| `engineering-vulnerability-upgrade` | Run the vulnerability workflow without Spec Kit | "Use engineering-vulnerability-upgrade for ticket D-12345" |
-| `ponytail` | Write the smallest change that fully solves a coding task, and say what was skipped | "ponytail: fix the date parsing bug" |
-
-Restart the agent, then ask for the skill by name.
-
-## 6. Add a skill to a stage
+## Add a skill to a stage
 
 The binding registry is the extension point. Adding a skill needs no change to the wrapped commands:
 
@@ -251,7 +264,7 @@ The binding registry is the extension point. Adding a skill needs no change to t
 2. Write `adapters/<id>.md`: which Spec Kit files it reads, where its output goes, and its quality gate.
 3. If deciding when it applies needs judgment, add `detectors/<name>.md`. It answers `yes`, `no` or `unknown`, with evidence.
 4. Add a binding to `config/engineering-build-config.template.yml`. Triggers are `always`, `detect`, `task_tag`, `path_glob`, `any` and `all`.
-5. Refresh the hashes and run the tests, then reinstall with `installer/install.py update`.
+5. Refresh the hashes and run the tests, then reinstall from your repository's root with `python ../sdlc-skills/speckit-extensions/install.py update`.
 
 To refresh the hashes:
 
@@ -261,7 +274,7 @@ python speckit-extensions/engineering-build/scripts/verify_lock.py --ext speckit
 
 Any edit to a shipped skill, including `skills/engineering-build/`, needs this refresh.
 
-## 7. Develop and test
+## Develop and test
 
 ```bash
 python -m unittest discover -s speckit-extensions/engineering-build/tests -v
@@ -274,10 +287,10 @@ The suite checks manifests, hooks, bindings, lock integrity, packaging, the Play
 | Symptom | Fix |
 | --- | --- |
 | `claude not found` during `specify init` | Add `--ignore-agent-tools` |
-| New commands do not appear | Restart the agent; check `specify extension list` and `specify preset list` |
+| New Spec Kit commands do not appear | Restart the agent; check `specify extension list` and `specify preset list` |
 | `skill-runs.md` is missing after a stage | Check that `specify preset resolve speckit.plan` points at `engineering-build-preset`, then restart the agent |
-| `hash drift` from `verify_lock.py` | A skill was edited. Restore it, or review it and refresh the hashes (section 6) |
-| Old `speckit-sdlc-skills-*` or `speckit-engineering-plan-*` commands still appear | Remove the older packages (section 2) |
+| `hash drift` from `verify_lock.py` | A skill was edited. Restore it, or review it and refresh the hashes ([Add a skill to a stage](#add-a-skill-to-a-stage)) |
+| Old `speckit-sdlc-skills-*` or `speckit-engineering-plan-*` commands still appear | Remove the older packages ([Update or remove](#update-or-remove)) |
 | The vulnerability intake lists only `main` | Your flow file was not installed; rerun with `--flows-config` |
-| The Agility step stops and asks for variables | Set `AGILITY_TOKEN` and `AGILITY_URL` in the shell, then rerun the intake |
+| The intake finds no findings in the report | Check the report has CVE rows with a fix version, or `group:artifact 1.2.3 -> 1.2.4` lines ([report format](skills/engineering-vulnerability-upgrade/references/report.md)) |
 | A repo folder is not found | Fix `workspace_root` in `vuln-flows.json`, or check the repo out there |

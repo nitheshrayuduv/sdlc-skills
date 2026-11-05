@@ -53,7 +53,7 @@ provides:
       description: Check every edge-case lens is answered or marked N/A
     - name: speckit.engineering-build.vuln-intake
       file: commands/vuln-intake.md
-      description: Ask for flow, Agility ticket, branch and base branch, then read the vulnerability report
+      description: Ask for flow, ticket, report, branch and base branch, then read the vulnerability report
     - name: speckit.engineering-build.vuln-pr
       file: commands/vuln-pr.md
       description: Raise one PR per changed repo when every build passed

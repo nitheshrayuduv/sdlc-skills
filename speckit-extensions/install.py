@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Install the engineering-build extension, its preset and its skills into Spec Kit repositories.
 
-  python installer/install.py install   --repo PATH [--source local|catalog|url|bundle] [--agent-skills DIR] ...
-  python installer/install.py update    --repo PATH
-  python installer/install.py verify    --repo PATH [--json]
-  python installer/install.py status    --repo PATH
-  python installer/install.py uninstall --repo PATH
-  python installer/install.py package   [--output dist]
+Run from the root of the repository to change (or pass --repo PATH), with sdlc-skills cloned next to it:
+
+  python ../sdlc-skills/speckit-extensions/install.py install   [--repo PATH] [--source local|catalog|url|bundle] [--agent-skills DIR] ...
+  python ../sdlc-skills/speckit-extensions/install.py update    [--repo PATH]
+  python ../sdlc-skills/speckit-extensions/install.py verify    [--repo PATH] [--json]
+  python ../sdlc-skills/speckit-extensions/install.py status    [--repo PATH]
+  python ../sdlc-skills/speckit-extensions/install.py uninstall [--repo PATH]
+  python speckit-extensions/install.py package   [--output dist]     (inside sdlc-skills)
 
 Spec Kit itself is installed separately (`specify init`). This script stages the extension
 from speckit-extensions/engineering-build/ together with the skills its skills.lock.yml
@@ -516,7 +518,7 @@ def run_one(args, repo):
 def build_parser():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('command', choices=['install', 'update', 'verify', 'status', 'uninstall', 'package'])
-    ap.add_argument('--repo', help='Spec Kit project to change')
+    ap.add_argument('--repo', help='Spec Kit project to change (default: the current folder)')
     ap.add_argument('--repos-file', help='file with one repo path per line (bulk mode)')
     ap.add_argument('--source', choices=['local', 'catalog', 'url', 'bundle'], default='local')
     ap.add_argument('--local-path', help='sdlc-skills checkout to install from (default: this checkout)')
@@ -548,10 +550,8 @@ def main(argv=None):
     if args.repos_file:
         repos = [l.strip() for l in Path(args.repos_file).read_text(encoding='utf-8').splitlines()
                  if l.strip() and not l.startswith('#')]
-    elif args.repo:
-        repos = [args.repo]
     else:
-        build_parser().error('--repo or --repos-file is required')
+        repos = [args.repo or '.']  # default: the folder you run it from
     results = [run_one(args, r) for r in repos]
     if args.json:
         print(json.dumps(results, indent=2))

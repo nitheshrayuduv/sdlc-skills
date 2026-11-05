@@ -1,6 +1,6 @@
 # Native Spec Kit extension
 
-Use Spec Kit 1.2.0 or later within major version 1, installed separately in the target repository (`specify init`). Engineering Build then ships as two Spec Kit packages from the sdlc-skills repository, installed together by `installer/install.py`:
+Use Spec Kit 1.2.0 or later within major version 1, installed separately in the target repository (`specify init`). Engineering Build then ships as two Spec Kit packages from the sdlc-skills repository, installed together by `speckit-extensions/install.py`:
 
 | Package | Source | What it does |
 | --- | --- | --- |

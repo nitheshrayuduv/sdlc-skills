@@ -73,9 +73,16 @@ def repo_dir(workspace, name):
     return path
 
 
+SECRET_VARS = ('GH_TOKEN', 'GITHUB_TOKEN')
+
+
 def redact(text):
-    token = os.environ.get('AGILITY_TOKEN')
-    return text.replace(token, '***') if token and text else text
+    """Mask token values from the environment in command output."""
+    for name in SECRET_VARS:
+        token = os.environ.get(name)
+        if token and text:
+            text = text.replace(token, '***')
+    return text
 
 
 def run(cmd, cwd, timeout=None):

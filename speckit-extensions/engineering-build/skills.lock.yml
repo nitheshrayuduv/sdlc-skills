@@ -11,7 +11,7 @@ skills:
     commit: local
     license: internal
     version: "2.1.0"
-    sha256: 4bbeef0b457b9c9c19b0eedb3ef9aee70cad1451d0f321e7dd0c2560fdb52b41
+    sha256: 1ea4ebf7a1017ea556df75707c3a3c570776dd45603dca49ee9a5133d7dbb6b2
   - id: grill-me
     source: https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/docs/productivity
     commit: 4ae2317ddb22b046e26455e4f9c9b3aaaf62212d
@@ -47,4 +47,4 @@ skills:
     commit: local
     license: internal
     version: "1.0.0"
-    sha256: 1506d3f742da499e56fcd7bc07ba530af9a44ee63a9571867815ae49e28a914b
+    sha256: 7caeeb5efdcfdd69346faebf637e1eed04bc0fc01913e9edf28ba4bb8fb64d52

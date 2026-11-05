@@ -17,7 +17,7 @@ EXT = Path(__file__).resolve().parent.parent
 PRESET = EXT / 'preset'
 REPO = EXT.parent.parent
 SKILLS_DIR = REPO / 'skills'
-INSTALLER = REPO / 'installer' / 'install.py'
+INSTALLER = REPO / 'speckit-extensions' / 'install.py'
 UPSTREAM = ('grill-me', 'database-schema-designer', 'api-designer', 'playwright-expert', 'ponytail')
 INTERNAL = ('engineering-build', 'engineering-vulnerability-upgrade')
 SKILLS = UPSTREAM + INTERNAL
@@ -80,7 +80,10 @@ class StaticChecks(unittest.TestCase):
 
     def test_vuln_intake_always_asks_for_the_parent_branch_and_names_the_feature_folder(self):
         text = (EXT / 'commands' / 'vuln-intake.md').read_text(encoding='utf-8')
-        self.assertIn('4. **Base branch**', text)
+        self.assertIn('3. **Vulnerability report:**', text)
+        self.assertIn('read_report.py --report REPORT', text)
+        self.assertNotRegex(text, r'[A-Z]+_(TOKEN|URL)\b')  # the report needs no credentials
+        self.assertIn('5. **Base branch**', text)
         self.assertIn('created from', text)
         self.assertIn('Always ask', text)
         self.assertIn('--base PARENT', text)
@@ -285,6 +288,13 @@ class InstallChecks(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         again = json.loads(self.install(repo).stdout)
         self.assertEqual(again[0]['result']['status'], 'already installed')
+
+    def test_installs_into_the_current_folder_without_repo(self):
+        repo = self.init('cwd')
+        res = run(sys.executable, '-B', INSTALLER, 'install', '--json', cwd=repo)
+        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+        self.assertEqual(Path(json.loads(res.stdout)[0]['repo']), repo.resolve())
+        self.assertTrue((repo / '.specify' / 'extensions' / 'engineering-build' / 'extension.yml').is_file())
 
     def test_dry_run_changes_nothing(self):
         repo = self.init('ac16-dry')

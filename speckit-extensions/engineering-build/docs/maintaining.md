@@ -39,7 +39,7 @@ Installs are exercised against real temporary Spec Kit projects when `specify` i
 Bump `extension.version` in `extension.yml`, the preset version and its `requires.extensions` range, and `skills/engineering-build/VERSION`. Then:
 
 ```bash
-python installer/install.py package --output dist
+python speckit-extensions/install.py package --output dist
 ```
 
-This writes `dist/engineering-build-<version>.zip` (the staged extension with its skills, plus the preset) and its `.sha256`. Publish both, and fill `download_url` and `sha256` in `catalog/engineering-build.json`. Consumers install a release with `install.py install --source url --url <zip> --sha256 <hash>` or `--source bundle --bundle <zip>`.
+This writes `dist/engineering-build-<version>.zip` (the staged extension with its skills, plus the preset) and its `.sha256`. Publish both, and fill `download_url` and `sha256` in `speckit-extensions/catalog.json`. Consumers install a release with `install.py install --source url --url <zip> --sha256 <hash>` or `--source bundle --bundle <zip>`.
