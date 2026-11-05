@@ -23,8 +23,8 @@ Add `--ignore-agent-tools` if the agent CLI is not on PATH, and `--script ps` on
 From a clone of sdlc-skills (kept outside the application repository):
 
 ```bash
-python installer/install.py install --repo /path/to/application --dry-run
-python installer/install.py install --repo /path/to/application
+python speckit-extensions/install.py install --repo /path/to/application --dry-run
+python speckit-extensions/install.py install --repo /path/to/application
 ```
 
 The installer:
@@ -41,7 +41,7 @@ Add `--agent-skills .claude/skills` (or `.github/skills`, `.agents/skills`) to a
 In the agent chat, run `/speckit-engineering-build-configure` once (Codex: `$speckit-engineering-build-configure`). It adds the Engineering Build principle to the constitution. Then:
 
 ```bash
-python installer/install.py verify --repo /path/to/application
+python speckit-extensions/install.py verify --repo /path/to/application
 specify extension info engineering-build --json
 specify preset resolve speckit.plan
 ```
@@ -50,6 +50,6 @@ Expect the extension enabled with fifteen commands and twelve hooks, and `specki
 
 ## Update, migrate, remove
 
-- Update: `python installer/install.py update --repo PATH`. Project config and vulnerability flow settings are kept.
+- Update: `python speckit-extensions/install.py update --repo PATH`. Project config and vulnerability flow settings are kept.
 - Migrate from `engineering-plan` or `sdlc-skills` + `org-sdlc`: `specify preset remove org-sdlc`, `specify extension remove sdlc-skills --keep-config`, `specify extension remove engineering-plan`, then install. Move any binding overrides from `sdlc-skills-config.yml` into `engineering-build-config.yml`.
-- Remove: `python installer/install.py uninstall --repo PATH`. Feature documents and constitution text remain.
+- Remove: `python speckit-extensions/install.py uninstall --repo PATH`. Feature documents and constitution text remain.

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Install the engineering-build extension, its preset and its skills into Spec Kit repositories.
 
-  python installer/install.py install   --repo PATH [--source local|catalog|url|bundle] [--agent-skills DIR] ...
-  python installer/install.py update    --repo PATH
-  python installer/install.py verify    --repo PATH [--json]
-  python installer/install.py status    --repo PATH
-  python installer/install.py uninstall --repo PATH
-  python installer/install.py package   [--output dist]
+  python speckit-extensions/install.py install   --repo PATH [--source local|catalog|url|bundle] [--agent-skills DIR] ...
+  python speckit-extensions/install.py update    --repo PATH
+  python speckit-extensions/install.py verify    --repo PATH [--json]
+  python speckit-extensions/install.py status    --repo PATH
+  python speckit-extensions/install.py uninstall --repo PATH
+  python speckit-extensions/install.py package   [--output dist]
 
 Spec Kit itself is installed separately (`specify init`). This script stages the extension
 from speckit-extensions/engineering-build/ together with the skills its skills.lock.yml
