@@ -12,7 +12,6 @@ Engineering Build across the whole Spec Kit workflow: architecture, design and d
 | tasks | `prepare-tasks`, `task-check` | playwright-expert (`tasks-e2e`) | Detector `ui_flows` says yes |
 | implement | `prepare-implement`, `verify` | ponytail (`impl-minimal`) | Always, for every task (level in `settings.level`) |
 | implement | | playwright-expert (`impl-e2e`) | `[E2E]` task, or a matching test path |
-| plan, tasks, implement | | engineering-vulnerability-upgrade (`*-vuln-upgrade`) | Detector `vuln_report` says yes, or a `[VULN]` task |
 
 ## How the pieces fit
 
@@ -28,12 +27,11 @@ If the preset is missing or an agent skips a wrapped step, the after hooks (`des
 | --- | --- |
 | `extension.yml` | Commands and hooks |
 | `hooks.md` | Rules every hook follows, and the companion-skill table |
-| `commands/` | `prepare-*` and the after hooks; `run`, `edge-case-audit`, `vuln-intake`, `vuln-pr` |
+| `commands/` | `prepare-*` and the after hooks; `run`, `edge-case-audit` |
 | `config/engineering-build-config.template.yml` | The binding registry. Project overrides go in `.specify/extensions/engineering-build/engineering-build-config.yml` or `.local.yml` |
-| `config/vuln-flows.json` | Repo chains and build settings for the vulnerability upgrade |
 | `adapters/`, `detectors/` | Glue between Spec Kit artifacts and each skill, and the yes/no/unknown applicability checks |
 | `skills.lock.yml` | Pinned skills: source, commit, license, SHA-256 |
-| `scripts/` | `verify_lock.py`, `check_playwright_rules.py`, `vuln/` |
+| `scripts/` | `verify_lock.py`, `check_playwright_rules.py` |
 | `preset/` | The preset (installed separately by the installer) |
 | `docs/`, `tests/` | Source-only; excluded from the install by `.extensionignore` |
 

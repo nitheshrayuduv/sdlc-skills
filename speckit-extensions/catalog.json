@@ -4,9 +4,9 @@
     "engineering-build": {
       "name": "Engineering Build",
       "id": "engineering-build",
-      "version": "2.1.0",
+      "version": "3.0.0",
       "description": "Engineering Build across the Spec Kit workflow, calling pinned companion skills at the right stage through a binding registry.",
-      "download_url": "https://REPLACE_AT_RELEASE/engineering-build-2.1.0.zip",
+      "download_url": "https://REPLACE_AT_RELEASE/engineering-build-3.0.0.zip",
       "sha256": "REPLACE_AT_RELEASE",
       "requires": { "speckit_version": ">=1.2.0,<2.0.0" },
       "license": "MIT",
@@ -17,8 +17,8 @@
     "engineering-build-preset": {
       "name": "Engineering Build Stage Wraps",
       "id": "engineering-build-preset",
-      "version": "2.1.0",
-      "download_url": "https://REPLACE_AT_RELEASE/engineering-build-2.1.0.zip",
+      "version": "3.0.0",
+      "download_url": "https://REPLACE_AT_RELEASE/engineering-build-3.0.0.zip",
       "sha256": "REPLACE_AT_RELEASE",
       "requires": { "extensions": ["engineering-build"] },
       "install_allowed": true

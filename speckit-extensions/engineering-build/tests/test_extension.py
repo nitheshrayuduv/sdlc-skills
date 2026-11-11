@@ -19,7 +19,7 @@ REPO = EXT.parent.parent
 SKILLS_DIR = REPO / 'skills'
 INSTALLER = REPO / 'speckit-extensions' / 'install.py'
 UPSTREAM = ('grill-me', 'database-schema-designer', 'api-designer', 'playwright-expert', 'ponytail')
-INTERNAL = ('engineering-build', 'engineering-vulnerability-upgrade')
+INTERNAL = ('engineering-build',)
 SKILLS = UPSTREAM + INTERNAL
 STAGES = ('constitution', 'specify', 'clarify', 'plan', 'tasks', 'implement')
 CONFIG = EXT / 'config' / 'engineering-build-config.template.yml'
@@ -59,37 +59,6 @@ class StaticChecks(unittest.TestCase):
         for rel in ('preset/commands/speckit.implement.md', 'commands/prepare-implement.md'):
             self.assertIn('ponytail', (EXT / rel).read_text(encoding='utf-8'), rel)
 
-    def test_vulnerability_bindings_and_commands(self):
-        text = CONFIG.read_text(encoding='utf-8')
-        for ident, stage in (('plan-vuln-upgrade', 'plan'), ('tasks-vuln-upgrade', 'tasks'),
-                             ('impl-vuln-upgrade', 'implement.vuln-upgrade')):
-            self.assertRegex(text, rf'id:\s*{ident}\s*\n\s+stage:\s*{re.escape(stage)}')
-        manifest = (EXT / 'extension.yml').read_text(encoding='utf-8')
-        for cmd in ('vuln-intake', 'vuln-pr'):
-            self.assertIn(f'speckit.engineering-build.{cmd}', manifest)
-        # after_implement belongs to verify, which hands over to vuln-pr for vulnerability features
-        self.assertRegex(manifest, r'after_implement:\s*\n\s+command:\s*speckit\.engineering-build\.verify')
-        self.assertIn('commands/vuln-pr.md', (EXT / 'commands' / 'verify.md').read_text(encoding='utf-8'))
-
-    def test_vulnerability_upgrade_builds_clean_and_never_runs_tests_by_default(self):
-        flows = json.loads((EXT / 'config' / 'vuln-flows.json').read_text(encoding='utf-8'))
-        command = flows['build']['command']
-        self.assertEqual(command[:3], ['./gradlew', 'clean', 'build'])
-        self.assertIn('-x', command)
-        self.assertEqual(command[command.index('-x') + 1], 'test')
-
-    def test_vuln_intake_always_asks_for_the_parent_branch_and_names_the_feature_folder(self):
-        text = (EXT / 'commands' / 'vuln-intake.md').read_text(encoding='utf-8')
-        self.assertIn('3. **Vulnerability report:**', text)
-        self.assertIn('read_report.py --report REPORT', text)
-        self.assertNotRegex(text, r'[A-Z]+_(TOKEN|URL)\b')  # the report needs no credentials
-        self.assertIn('5. **Base branch**', text)
-        self.assertIn('created from', text)
-        self.assertIn('Always ask', text)
-        self.assertIn('--base PARENT', text)
-        self.assertIn('specs/NNN-vuln-upgrade-', text)
-        self.assertIn('.specify/feature.json', text)
-
     def test_preset_wraps_core_commands(self):
         text = (PRESET / 'preset.yml').read_text(encoding='utf-8')
         self.assertIn('id: engineering-build\n', text)
@@ -114,7 +83,7 @@ class EngineeringBuildChecks(unittest.TestCase):
     def test_twelve_mandatory_hooks_point_at_real_commands(self):
         text = self.manifest()
         commands = set(re.findall(r'-\s+name:\s*(speckit\.engineering-build\.[\w-]+)', text))
-        self.assertEqual(len(commands), 15)
+        self.assertEqual(len(commands), 13)
         hooks = re.findall(r'^  (before|after)_(\w+):\s*\n\s+command:\s*(\S+)\s*\n\s+optional:\s*(\w+)', text, re.M)
         self.assertEqual({(w, s) for w, s, _, _ in hooks}, {(w, s) for s in STAGES for w in ('before', 'after')})
         for _, _, cmd, optional in hooks:
@@ -137,56 +106,28 @@ class EngineeringBuildChecks(unittest.TestCase):
     def test_skill_names_its_companions(self):
         body = (SKILLS_DIR / 'engineering-build' / 'SKILL.md').read_text(encoding='utf-8')
         self.assertIn('name: engineering-build', body)
-        for skill in UPSTREAM + ('engineering-vulnerability-upgrade',):
+        for skill in UPSTREAM:
             self.assertIn(skill, body)
         self.assertIn('speckit.engineering-build.run', body)
 
     def test_no_stale_names_in_shipped_content(self):
         roots = [EXT / d for d in ('commands', 'adapters', 'detectors', 'config', 'preset')] + [
-            EXT / 'hooks.md', EXT / 'extension.yml', SKILLS_DIR / 'engineering-build',
-            SKILLS_DIR / 'engineering-vulnerability-upgrade']
+            EXT / 'hooks.md', EXT / 'extension.yml', SKILLS_DIR / 'engineering-build']
         for root in roots:
             for path in ([root] if root.is_file() else [p for p in root.rglob('*') if p.is_file()]):
                 text = path.read_text(encoding='utf-8')
                 self.assertNotRegex(text, r'sdlc-skills-config|speckit\.sdlc-skills|SDLC_SKILLS|\.specify/extensions/sdlc-skills', path)
 
+    def test_no_vulnerability_workflow_left(self):
+        self.assertFalse((SKILLS_DIR / 'engineering-vulnerability-upgrade').exists())
+        self.assertFalse((EXT / 'scripts' / 'vuln').exists())
+        self.assertNotIn('vuln', self.manifest())
+        self.assertNotIn('vuln', CONFIG.read_text(encoding='utf-8'))
+
     def test_extensionignore_keeps_source_only_folders_out(self):
         ignore = (EXT / '.extensionignore').read_text(encoding='utf-8').split()
         for name in ('preset/', 'tests/', 'docs/'):
             self.assertIn(name, ignore)
-
-
-class InstallerSettingsChecks(unittest.TestCase):
-    def test_update_keeps_project_flow_settings_and_takes_new_defaults(self):
-        import importlib.util
-        spec = importlib.util.spec_from_file_location('eb_install', INSTALLER)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        fresh = {'workspace_root': '~/work', 'build': {'command': ['a'], 'version_command': ['v']},
-                 'repo_overrides': {}, 'handoff': [{'from': 'new'}], 'flows': {'main': {'repos': ['r']}}}
-        saved = {'workspace_root': 'C:/work', 'build': {'command': ['clean', 'build', '-x', 'test']},
-                 'repo_overrides': {'app-image': {'command': ['x']}}, 'handoff': [{'from': 'old'}]}
-        merged = module.merge_flow_settings(fresh, saved)
-        self.assertEqual(merged['workspace_root'], 'C:/work')
-        self.assertEqual(merged['build']['command'], ['clean', 'build', '-x', 'test'])
-        self.assertEqual(merged['build']['version_command'], ['v'])      # new default key kept
-        self.assertEqual(merged['repo_overrides'], {'app-image': {'command': ['x']}})
-        self.assertEqual(merged['handoff'], [{'from': 'old'}])           # the project's hand-overs are kept
-        self.assertEqual(merged['flows'], {'main': {'repos': ['r']}})  # no project chains yet: example kept
-        saved['flows'] = {'main': {'repos': ['team-a', 'team-b']}}
-        self.assertEqual(module.merge_flow_settings(fresh, saved)['flows']['main']['repos'], ['team-a', 'team-b'])
-
-    def test_shipped_flow_config_is_consistent(self):
-        """The shipped file is only an example; check its shape, not any repo names."""
-        flows = json.loads((EXT / 'config' / 'vuln-flows.json').read_text(encoding='utf-8'))
-        self.assertTrue(flows['flows'])
-        repos = {r for f in flows['flows'].values() for r in f['repos']}
-        for flow in flows['flows'].values():
-            self.assertEqual(flow['repos'][0], flows['platform_repo'])   # the platform repo builds first
-        for rule in flows['handoff']:
-            self.assertIn(rule['from'], repos)
-            for target in rule['to']:
-                self.assertIn(target['repo'], repos)
 
 
 class LockChecks(unittest.TestCase):
@@ -325,22 +266,6 @@ class InstallChecks(unittest.TestCase):
         marker.write_text(marker.read_text(encoding='utf-8') + '\n# keep me\n', encoding='utf-8')
         run(sys.executable, '-B', INSTALLER, 'update', '--repo', good)
         self.assertIn('# keep me', marker.read_text(encoding='utf-8'))
-
-    def test_private_flows_config_is_applied_and_kept_on_update(self):
-        repo = self.init('flows-config')
-        private = self.base / 'team-flows.json'
-        private.write_text(json.dumps({'platform_repo': 'team-core',
-                                       'flows': {'main': {'repos': ['team-core', 'team-app']}}}), encoding='utf-8')
-        res = self.install(repo, '--flows-config', private)
-        self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
-        installed = repo / '.specify' / 'extensions' / 'engineering-build' / 'config' / 'vuln-flows.json'
-        data = json.loads(installed.read_text(encoding='utf-8'))
-        self.assertEqual(data['platform_repo'], 'team-core')
-        self.assertEqual(data['flows']['main']['repos'], ['team-core', 'team-app'])
-        self.assertIn('build', data)                                   # example defaults still present
-        run(sys.executable, '-B', INSTALLER, 'update', '--repo', repo)
-        data = json.loads(installed.read_text(encoding='utf-8'))
-        self.assertEqual(data['flows']['main']['repos'], ['team-core', 'team-app'])
 
     def test_agent_skills_are_copied_when_asked(self):
         repo = self.init('agent-skills')

@@ -2,14 +2,14 @@ schema_version: "1.0"
 preset:
   id: engineering-build-preset
   name: Engineering Build Stage Wraps
-  version: "2.1.0"
+  version: "3.0.0"
   description: Wraps clarify, plan, tasks and implement so the engineering-build extension runs its companion-skill bindings at the exact point inside each stage.
   license: MIT
 requires:
   speckit_version: ">=1.2.0,<2.0.0"
   extensions:
     - id: engineering-build
-      version: ">=2.0.0,<3.0.0"
+      version: ">=3.0.0,<4.0.0"
       required: true
 provides:
   templates:

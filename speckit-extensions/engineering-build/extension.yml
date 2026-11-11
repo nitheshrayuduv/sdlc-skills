@@ -2,8 +2,8 @@ schema_version: "1.0"
 extension:
   id: engineering-build
   name: Engineering Build
-  version: "2.1.0"
-  description: Engineering Build across the Spec Kit workflow, calling pinned companion skills (grill-me, database-schema-designer, api-designer, playwright-expert, ponytail, engineering-vulnerability-upgrade) at the right stage through a binding registry.
+  version: "3.0.0"
+  description: Engineering Build across the Spec Kit workflow, calling pinned companion skills (grill-me, database-schema-designer, api-designer, playwright-expert, ponytail) at the right stage through a binding registry.
   license: MIT
 requires:
   speckit_version: ">=1.2.0,<2.0.0"
@@ -51,12 +51,6 @@ provides:
     - name: speckit.engineering-build.edge-case-audit
       file: commands/edge-case-audit.md
       description: Check every edge-case lens is answered or marked N/A
-    - name: speckit.engineering-build.vuln-intake
-      file: commands/vuln-intake.md
-      description: Ask for flow, ticket, report, branch and base branch, then read the vulnerability report
-    - name: speckit.engineering-build.vuln-pr
-      file: commands/vuln-pr.md
-      description: Raise one PR per changed repo when every build passed
   config:
     - name: engineering-build-config.yml
       template: config/engineering-build-config.template.yml
@@ -112,7 +106,7 @@ hooks:
     command: speckit.engineering-build.task-check
     optional: false
     priority: 20
-    description: Check tasks; makes sure the E2E and vulnerability task bindings ran.
+    description: Check tasks; makes sure the E2E task bindings ran.
   before_implement:
     command: speckit.engineering-build.prepare-implement
     optional: false
@@ -122,7 +116,7 @@ hooks:
     command: speckit.engineering-build.verify
     optional: false
     priority: 20
-    description: Record evidence; offers vulnerability-upgrade PRs when the feature has vuln/intake.json.
+    description: Record implementation evidence and remaining gaps.
 tags:
   - architecture
   - planning

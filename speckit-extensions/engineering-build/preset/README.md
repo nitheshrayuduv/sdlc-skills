@@ -5,8 +5,8 @@ Wraps `speckit.clarify`, `speckit.plan`, `speckit.tasks` and `speckit.implement`
 | Command | Position | Companion skills it triggers |
 | --- | --- | --- |
 | clarify | before the core steps | grill-me |
-| plan | after the core design step | database-schema-designer, api-designer, engineering-vulnerability-upgrade |
-| tasks | after core task generation | playwright-expert, engineering-vulnerability-upgrade |
-| implement | standing instruction before the core steps | ponytail, playwright-expert, engineering-vulnerability-upgrade |
+| plan | after the core design step | database-schema-designer, api-designer |
+| tasks | after core task generation | playwright-expert |
+| implement | standing instruction before the core steps | ponytail, playwright-expert |
 
 The preset requires the extension. Install both with the installer, which adds the extension (with its skills) first and this preset at priority 5: see [speckit-extensions/README.md](../../README.md).

@@ -10,8 +10,8 @@ skills:
     source: skills/engineering-build in this repository
     commit: local
     license: internal
-    version: "2.1.0"
-    sha256: 1ea4ebf7a1017ea556df75707c3a3c570776dd45603dca49ee9a5133d7dbb6b2
+    version: "3.0.0"
+    sha256: 38675dd98fd317b496b8b8fde39ad843ec04480ba40be902f24791b1d66986b9
   - id: grill-me
     source: https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/docs/productivity
     commit: 4ae2317ddb22b046e26455e4f9c9b3aaaf62212d
@@ -42,9 +42,3 @@ skills:
     license: MIT
     version: unversioned
     sha256: 828ce9f862d36eabcad48f746f66a5c38384e381166064c71f4dc78132d4f50b
-  - id: engineering-vulnerability-upgrade
-    source: skills/engineering-vulnerability-upgrade in this repository
-    commit: local
-    license: internal
-    version: "1.0.0"
-    sha256: 7caeeb5efdcfdd69346faebf637e1eed04bc0fc01913e9edf28ba4bb8fb64d52

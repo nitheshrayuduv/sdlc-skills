@@ -4,7 +4,7 @@ Skill: `skills/ponytail/SKILL.md`.
 
 ## When
 
-Binding `impl-minimal`, trigger `always`: it applies to every task of `speckit.implement`, before any other implement binding (`order: 10`). The `[E2E]` and `[VULN]` bindings still run for their tasks; ponytail decides how much code is written, they decide what a test or a version change must contain.
+Binding `impl-minimal`, trigger `always`: it applies to every task of `speckit.implement`, before any other implement binding (`order: 10`). The `[E2E]` binding still runs for its tasks; ponytail decides how much code is written, playwright-expert decides what a test must contain.
 
 ## How to apply it
 
@@ -12,7 +12,7 @@ Before writing code for a task, follow the skill's **Before you write** and **Th
 
 Map the skill to Spec Kit:
 
-- **Scope** is the task text in `tasks.md` plus what `spec.md`, `plan.md`, `data-model.md` and `contracts/` require for it. Everything those files ask for counts as "asked for" and is never cut, including tests the task or a companion skill requires (Page Objects for `[E2E]`, the build chain for `[VULN]`).
+- **Scope** is the task text in `tasks.md` plus what `spec.md`, `plan.md`, `data-model.md` and `contracts/` require for it. Everything those files ask for counts as "asked for" and is never cut, including tests the task or a companion skill requires (Page Objects for `[E2E]`).
 - **Skipped extras** (an option, abstraction or feature nobody asked for) are named in one line in the task's completion note, not built.
 - **Shortcuts** with a known limit get the skill's `shortcut: <the limit>, <when to upgrade>` comment in code.
 - **`ultra`** pushes back on the request: raise the doubt with the user before coding the task, and do not change `spec.md` or `tasks.md` on your own.

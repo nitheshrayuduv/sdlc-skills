@@ -14,7 +14,6 @@ Python 3.8+, standard library only. It drives the `specify` CLI, so the target n
 python ../sdlc-skills/speckit-extensions/install.py install                                  # into the current folder
 python ../sdlc-skills/speckit-extensions/install.py install --dry-run                        # print everything, change nothing
 python ../sdlc-skills/speckit-extensions/install.py install --agent-skills .claude/skills    # also copy skills for direct use
-python ../sdlc-skills/speckit-extensions/install.py install --flows-config /path/outside/the/clone/vuln-flows.json
 python ../sdlc-skills/speckit-extensions/install.py install --repo /path/to/other-repo        # a different folder
 python ../sdlc-skills/speckit-extensions/install.py install --repos-file repos.txt            # many repos, one result row each
 python ../sdlc-skills/speckit-extensions/install.py install --profile strict --set max_rounds=4
@@ -35,6 +34,6 @@ What `install` does, in order:
 
 Sources: `--source local` (default, this checkout or `--local-path`), `catalog` (with `--version`), `url` (`--url` and `--sha256`) or `bundle` (`--bundle file.zip`, offline). Archives must come from `install.py package`, so the extension already carries its skills.
 
-The shipped `vuln-flows.json` is a neutral example. Pass `--flows-config FILE` to overlay your team's own file (real repo chains, kept outside git) on install or update. `update` keeps project config and this project's `vuln-flows.json` settings (`workspace_root`, `branch_prefix`, `build`, `repo_overrides`, `base_branch`, `platform_repo`, `reference_paths`, `handoff`, `flows`) and takes only new default keys from the release.
+`update` keeps the project's `engineering-build-config.yml` and replaces the extension, its skills and the preset with this checkout's versions.
 
 Exit codes: 0 success, 1 failure, 2 preflight failure, 3 integrity failure. The log is `.specify/engineering-build-install.log`. Restart your agent if the new commands do not appear.

@@ -46,10 +46,10 @@ specify extension info engineering-build --json
 specify preset resolve speckit.plan
 ```
 
-Expect the extension enabled with fifteen commands and twelve hooks, and `speckit.plan` resolving to `engineering-build-preset`. Try a small feature and check `specs/<feature>/skill-runs.md`; a printed EXECUTE_COMMAND line alone is not proof a hook ran.
+Expect the extension enabled with thirteen commands and twelve hooks, and `speckit.plan` resolving to `engineering-build-preset`. Try a small feature and check `specs/<feature>/skill-runs.md`; a printed EXECUTE_COMMAND line alone is not proof a hook ran.
 
 ## Update, migrate, remove
 
-- Update: `python ../sdlc-skills/speckit-extensions/install.py update`. Project config and vulnerability flow settings are kept.
+- Update: `python ../sdlc-skills/speckit-extensions/install.py update`. Project config is kept.
 - Migrate from `engineering-plan` or `sdlc-skills` + `org-sdlc`: `specify preset remove org-sdlc`, `specify extension remove sdlc-skills --keep-config`, `specify extension remove engineering-plan`, then install. Move any binding overrides from `sdlc-skills-config.yml` into `engineering-build-config.yml`.
 - Remove: `python ../sdlc-skills/speckit-extensions/install.py uninstall`. Feature documents and constitution text remain.
