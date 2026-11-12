@@ -1,10 +1,7 @@
----
-description: Check every edge-case lens is answered or marked N/A
----
 
 # Edge-case coverage audit
 
-Read the `clarify-grill` binding's `edge_case_lenses` from the merged registry (see `.specify/extensions/engineering-build/commands/run.md`, section 1) and open the active feature's `spec.md`.
+Read the `clarify-grill` binding's `edge_case_lenses` from the merged registry (see `.specify/presets/engineering-build/guide/bindings.md`, section 1) and open the active feature's `spec.md`.
 
 For each lens, find an answer under `## Clarifications` or a requirement, edge case or assumption that covers it. Mark each lens exactly one of:
 

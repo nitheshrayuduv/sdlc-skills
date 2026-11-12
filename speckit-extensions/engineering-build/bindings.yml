@@ -1,6 +1,6 @@
 schema_version: "1.0"
-# Binding registry. Override per repo in engineering-build-config.yml (project) or
-# engineering-build-config.local.yml (local); SPECKIT_ENGINEERING_BUILD_* env vars win last.
+# Binding registry (shipped defaults). Override per repo in .specify/engineering-build.yml (project) or
+# .specify/engineering-build.local.yml (local), matching bindings by id.
 defaults:
   required: false        # false = warn and continue; true = block the stage
 bindings:

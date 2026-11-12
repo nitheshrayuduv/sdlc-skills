@@ -1,9 +1,9 @@
-# Spec Kit extensions
+# Spec Kit preset
 
 | Path | What it is |
 | --- | --- |
-| [`engineering-build/`](engineering-build/README.md) | The `engineering-build` extension, with its `engineering-build-preset` preset in `engineering-build/preset/` |
-| `install.py` | Installs the extension, its locked skills and the preset into a Spec Kit project |
+| [`engineering-build/`](engineering-build/README.md) | The `engineering-build` Spec Kit preset |
+| `install.py` | Installs the preset with its locked skills into a Spec Kit project |
 | `catalog.json` | Template entry for an internal Spec Kit catalog. Fill `download_url` and `sha256` at release time. Only an internal catalog should set `install_allowed: true` |
 
 ## install.py
@@ -25,15 +25,15 @@ python speckit-extensions/install.py package --output dist          # release zi
 What `install` does, in order:
 
 1. Preflight: `.specify/` exists, `specify` version, Python version, git tree state. Warns if the older `engineering-plan`, `sdlc-skills` or `org-sdlc` packages are still installed.
-2. Stage: copies `engineering-build/` (without `preset/`, `tests/`, `docs/`) to a temporary folder and adds every skill named in its `skills.lock.yml` from the top-level `skills/` folder. The lock is verified on the source and on the staged copy.
+2. Stage: copies `engineering-build/` (without `tests/` and `docs/`) to a temporary folder and adds every skill named in its `skills.lock.yml` from the top-level `skills/` folder. The lock is verified on the source and on the staged copy.
 3. Back up `.specify/` registries to `.specify/.backup/<timestamp>/`.
-4. `specify extension add <staged> --dev`, then `specify preset add --dev speckit-extensions/engineering-build/preset --priority 5`.
-5. Create `engineering-build-config.yml` from the template only if absent (`--profile`, `--set` apply).
-6. Verify the installed lock, check the extension and preset are listed, and check the four wrapped commands resolve to the preset. Any failure removes what was added and restores the registries.
+4. Remove an earlier Engineering Build install (the `engineering-build` extension and `engineering-build-preset`), moving its binding config to `.specify/engineering-build.yml`. Then `specify preset add --dev <staged> --priority 5`.
+5. Create `.specify/engineering-build.yml` from `bindings.yml` only if absent (`--profile`, `--set` apply).
+6. Verify the installed lock, check the preset is listed, and check the six wrapped commands resolve to it. Any failure removes the preset and restores the registries.
 7. With `--agent-skills DIR`, copy every folder under `skills/` into `DIR` inside the repo (existing ones are kept, except on `update`).
 
-Sources: `--source local` (default, this checkout or `--local-path`), `catalog` (with `--version`), `url` (`--url` and `--sha256`) or `bundle` (`--bundle file.zip`, offline). Archives must come from `install.py package`, so the extension already carries its skills.
+Sources: `--source local` (default, this checkout or `--local-path`), `catalog` (with `--version`), `url` (`--url` and `--sha256`) or `bundle` (`--bundle file.zip`, offline). Archives must come from `install.py package`, so the preset already carries its skills.
 
-`update` keeps the project's `engineering-build-config.yml` and replaces the extension, its skills and the preset with this checkout's versions.
+`update` keeps `.specify/engineering-build.yml` and replaces the preset and its skills with this checkout's versions. `verify` fails while the old extension is still installed.
 
 Exit codes: 0 success, 1 failure, 2 preflight failure, 3 integrity failure. The log is `.specify/engineering-build-install.log`. Restart your agent if the new commands do not appear.

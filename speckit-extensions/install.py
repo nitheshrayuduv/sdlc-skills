@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the engineering-build extension, its preset and its skills into Spec Kit repositories.
+"""Install the engineering-build preset and its skills into Spec Kit repositories.
 
 Run from the root of the repository to change (or pass --repo PATH), with sdlc-skills cloned next to it:
 
@@ -10,10 +10,11 @@ Run from the root of the repository to change (or pass --repo PATH), with sdlc-s
   python ../sdlc-skills/speckit-extensions/install.py uninstall [--repo PATH]
   python speckit-extensions/install.py package   [--output dist]     (inside sdlc-skills)
 
-Spec Kit itself is installed separately (`specify init`). This script stages the extension
-from speckit-extensions/engineering-build/ together with the skills its skills.lock.yml
-names (copied from the top-level skills/ folder), then drives the `specify` CLI to add the
-extension and the preset. It never copies into Spec Kit's registries itself.
+Spec Kit itself is installed separately (`specify init`). The preset's skills live in the
+top-level skills/ folder, not inside the preset, so this script stages
+speckit-extensions/engineering-build/ together with the skills its skills.lock.yml names,
+checks every hash, then runs `specify preset add --dev <staged>`. It never writes Spec Kit's
+registries itself. An older install that used the engineering-build extension is removed first.
 Standard library only. Exit codes: 0 success, 1 failure, 2 preflight failure, 3 integrity failure.
 """
 import argparse
@@ -29,17 +30,18 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-EXT_ID, PRESET_ID = 'engineering-build', 'engineering-build-preset'
-OLD_IDS = (('extension', 'engineering-plan'), ('extension', 'sdlc-skills'), ('preset', 'org-sdlc'))
+PRESET_ID = 'engineering-build'
+# Earlier releases shipped an extension plus a second preset; install and update remove them.
+OUR_OLD = (('preset', 'engineering-build-preset'), ('extension', 'engineering-build'))
+OLD_CONFIG = Path('extensions') / 'engineering-build' / 'engineering-build-config.yml'
+LEGACY = (('extension', 'engineering-plan'), ('extension', 'sdlc-skills'), ('preset', 'org-sdlc'))
 MIN_SPECIFY = (1, 2, 0)
 MIN_PYTHON = (3, 8)
-CORE_COMMANDS = ('speckit.clarify', 'speckit.plan', 'speckit.tasks', 'speckit.implement')
+CORE_COMMANDS = ('speckit.constitution', 'speckit.specify', 'speckit.clarify',
+                 'speckit.plan', 'speckit.tasks', 'speckit.implement')
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LOCAL_EXT = REPO_ROOT / 'speckit-extensions' / EXT_ID
-LOCAL_PRESET = LOCAL_EXT / 'preset'
-LOCAL_SKILLS = REPO_ROOT / 'skills'
-CONFIG_NAME = EXT_ID + '-config.yml'
-STAGE_IGNORE = ('preset', 'tests', 'docs', '__pycache__', '*.pyc', '.extensionignore')
+CONFIG_NAME = PRESET_ID + '.yml'  # project overrides, in .specify/ so updates never replace them
+STAGE_IGNORE = ('tests', 'docs', '__pycache__', '*.pyc', '.presetignore')
 OK, FAIL, PREFLIGHT, INTEGRITY = 0, 1, 2, 3
 
 
@@ -62,7 +64,7 @@ class Ctx:
         if not self.args.json:
             print(msg)
         if not self.dry and (self.repo / '.specify').is_dir():
-            with open(self.repo / '.specify' / (EXT_ID + '-install.log'), 'a', encoding='utf-8') as fh:
+            with open(self.repo / '.specify' / (PRESET_ID + '-install.log'), 'a', encoding='utf-8') as fh:
                 fh.write(f'{datetime.datetime.now().isoformat(timespec="seconds")} {msg}\n')
 
     def run(self, cmd, mutate=True):
@@ -104,9 +106,9 @@ def preflight(ctx, specify):
     ver = parse_version(out.stdout + out.stderr)
     if ver is None or ver < MIN_SPECIFY:
         raise InstallError(f'specify {".".join(map(str, MIN_SPECIFY))}+ required, found {ver}', PREFLIGHT)
-    for kind, ident in OLD_IDS:
+    for kind, ident in LEGACY:
         if installed(ctx, specify, kind, ident):
-            ctx.log(f'warning: older {kind} {ident!r} is installed; remove it so it does not run next to {EXT_ID} '
+            ctx.log(f'warning: older {kind} {ident!r} is installed; remove it so it does not run next to {PRESET_ID} '
                     f'(specify {kind} remove {ident})')
     state = git_state(ctx.repo)
     ctx.log(f'preflight ok: specify {".".join(map(str, ver))}, git tree {state}')
@@ -127,9 +129,9 @@ def installed(ctx, specify, kind, ident):
     return any(isinstance(e, dict) and e.get('id') == ident for e in list_json(ctx, specify, kind))
 
 
-def verify_lock(ext_dir, skills_dir=None):
-    script = Path(ext_dir) / 'scripts' / 'verify_lock.py'
-    cmd = [sys.executable, '-B', str(script), '--ext', str(ext_dir)] + (['--skills', str(skills_dir)] if skills_dir else [])
+def verify_lock(preset_dir, skills_dir=None):
+    script = Path(preset_dir) / 'scripts' / 'verify_lock.py'
+    cmd = [sys.executable, '-B', str(script), '--preset', str(preset_dir)] + (['--skills', str(skills_dir)] if skills_dir else [])
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode:
         raise InstallError('vendored skill integrity check failed:\n' + res.stderr, INTEGRITY)
@@ -143,42 +145,38 @@ def sha256_file(path):
     return h.hexdigest()
 
 
-def locked_skill_ids(ext_dir):
-    text = (Path(ext_dir) / 'skills.lock.yml').read_text(encoding='utf-8')
+def locked_skill_ids(preset_dir):
+    text = (Path(preset_dir) / 'skills.lock.yml').read_text(encoding='utf-8')
     return re.findall(r'^\s*-\s+id:\s*(\S+)', text, re.M)
 
 
-def stage_extension(ext_src, skills_src, dest):
-    """Copy the extension source plus every skill its lock names into dest, then verify the lock."""
-    ext_src, skills_src, dest = Path(ext_src), Path(skills_src), Path(dest)
-    if not (ext_src / 'extension.yml').is_file():
-        raise InstallError(f'no extension.yml in {ext_src}', PREFLIGHT)
-    verify_lock(ext_src, skills_src)
-    shutil.copytree(ext_src, dest, ignore=shutil.ignore_patterns(*STAGE_IGNORE))
-    for ident in locked_skill_ids(ext_src):
+def stage_preset(preset_src, skills_src, dest):
+    """Copy the preset source plus every skill its lock names into dest, then verify the lock."""
+    preset_src, skills_src, dest = Path(preset_src), Path(skills_src), Path(dest)
+    if not (preset_src / 'preset.yml').is_file():
+        raise InstallError(f'no preset.yml in {preset_src}', PREFLIGHT)
+    verify_lock(preset_src, skills_src)
+    shutil.copytree(preset_src, dest, ignore=shutil.ignore_patterns(*STAGE_IGNORE))
+    for ident in locked_skill_ids(preset_src):
         shutil.copytree(skills_src / ident, dest / 'skills' / ident, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     verify_lock(dest)
     return dest
 
 
 def source_paths(local_path=None):
-    """(extension, preset, skills) source folders in an sdlc-skills checkout."""
+    """(preset, skills) source folders in an sdlc-skills checkout."""
     base = Path(local_path).resolve() if local_path else REPO_ROOT
-    ext = base / 'speckit-extensions' / EXT_ID
-    return ext, ext / 'preset', base / 'skills'
+    return base / 'speckit-extensions' / PRESET_ID, base / 'skills'
 
 
-def locate_sources(ctx, workdir):
-    """Return (extension dir, preset dir) for the chosen --source, or (None, None) for catalog ids.
-
-    A local source is staged into workdir first, so the installed extension carries its skills.
-    """
+def locate_source(ctx, workdir):
+    """Return the staged preset folder for the chosen --source, or None to install a catalog id."""
     a = ctx.args
     if a.source == 'local':
-        ext, preset, skills = source_paths(a.local_path)
-        staged = stage_extension(ext, skills, Path(workdir) / EXT_ID)
-        ctx.log(f'staged {EXT_ID} with skills: {", ".join(locked_skill_ids(ext))}')
-        return staged, preset
+        preset, skills = source_paths(a.local_path)
+        staged = stage_preset(preset, skills, Path(workdir) / PRESET_ID)
+        ctx.log(f'staged {PRESET_ID} with skills: {", ".join(locked_skill_ids(preset))}')
+        return staged
     if a.source in ('url', 'bundle'):
         if a.source == 'url':
             if not a.url or not a.sha256:
@@ -203,15 +201,14 @@ def locate_sources(ctx, workdir):
                     if dest.resolve() not in target.parents and target != dest.resolve():
                         raise InstallError(f'unsafe path in archive: {name}', INTEGRITY)
                 z.extractall(dest)
-        found = list(dest.rglob('extension.yml')) if dest.exists() else []
-        pfound = list(dest.rglob('preset.yml')) if dest.exists() else []
-        if not ctx.dry and (not found or not pfound):
-            raise InstallError('archive must contain extension.yml and preset.yml', INTEGRITY)
-        ext_dir = found[0].parent if found else dest / EXT_ID
-        if not ctx.dry and not (ext_dir / 'skills').is_dir():
-            raise InstallError('archive extension has no skills/ folder; build it with `install.py package`', INTEGRITY)
-        return ext_dir, (pfound[0].parent if pfound else dest / PRESET_ID)
-    return None, None  # catalog: install by id
+        found = list(dest.rglob('preset.yml')) if dest.exists() else []
+        if not ctx.dry and not found:
+            raise InstallError('archive must contain preset.yml', INTEGRITY)
+        preset_dir = found[0].parent if found else dest / PRESET_ID
+        if not ctx.dry and not (preset_dir / 'skills').is_dir():
+            raise InstallError('archive preset has no skills/ folder; build it with `install.py package`', INTEGRITY)
+        return preset_dir
+    return None  # catalog: install by id
 
 
 def backup_registries(ctx):
@@ -240,20 +237,37 @@ def restore_registries(ctx, backup):
             shutil.copy2(src, target)
 
 
-def bootstrap_config(ctx, ext_dir):
-    """Copy the template to the project config only if absent; apply --profile and --set."""
-    cfg_dir = ctx.repo / '.specify' / 'extensions' / EXT_ID
-    cfg = cfg_dir / CONFIG_NAME
-    template = (Path(ext_dir) / 'config' / (EXT_ID + '-config.template.yml')) if ext_dir else None
+def remove_old_install(ctx, specify):
+    """Remove the extension-based install of earlier releases, keeping its config as the project config."""
+    found = [(kind, ident) for kind, ident in OUR_OLD if installed(ctx, specify, kind, ident)]
+    if not found:
+        return []
+    old_cfg = ctx.repo / '.specify' / OLD_CONFIG
+    new_cfg = ctx.repo / '.specify' / CONFIG_NAME
+    if old_cfg.is_file() and not new_cfg.exists():
+        ctx.log(f'moving the old binding config to {new_cfg}')
+        if not ctx.dry:
+            shutil.copy2(old_cfg, new_cfg)
+    for kind, ident in found:
+        ctx.log(f'removing the older {kind} {ident!r}; this release is a single preset')
+        ctx.run([specify, kind, 'remove', ident] + (['--force', '--keep-config'] if kind == 'extension' else []))
+    return found
+
+
+def bootstrap_config(ctx, preset_dir):
+    """Copy bindings.yml to the project config only if absent; apply --profile and --set."""
+    cfg = ctx.repo / '.specify' / CONFIG_NAME
     if cfg.exists():
         ctx.log('config exists, left untouched: ' + str(cfg))
         return
     if ctx.dry:
         ctx.log(f'would create {cfg}')
         return
+    template = Path(preset_dir) / 'bindings.yml' if preset_dir else None
     if template is None or not template.is_file():
-        template = cfg_dir / 'config' / (EXT_ID + '-config.template.yml')
+        template = ctx.repo / '.specify' / 'presets' / PRESET_ID / 'bindings.yml'
     text = template.read_text(encoding='utf-8')
+    text = text.replace('# Binding registry (shipped defaults).', '# Project binding settings, copied from the preset at install.', 1)
     if ctx.args.profile == 'strict':
         text = re.sub(r'required:\s*false', 'required: true', text, count=1)
     for item in ctx.args.set or []:
@@ -262,9 +276,8 @@ def bootstrap_config(ctx, ext_dir):
             raise InstallError(f'--set expects key=value, got {item!r}', PREFLIGHT)
         pattern = re.compile(rf'^(\s*{re.escape(key.split(".")[-1])}\s*:\s*).*$', re.M)
         if not pattern.search(text):
-            raise InstallError(f'--set {key}: key not found in config template', PREFLIGHT)
+            raise InstallError(f'--set {key}: key not found in bindings.yml', PREFLIGHT)
         text = pattern.sub(lambda m: m.group(1) + value, text, count=1)
-    cfg_dir.mkdir(parents=True, exist_ok=True)
     cfg.write_text(text, encoding='utf-8')
     ctx.log(f'config written ({ctx.args.profile} profile): {cfg}')
 
@@ -276,7 +289,7 @@ def install_agent_skills(ctx):
     if ctx.args.source != 'local':
         ctx.log('warning: --agent-skills needs --source local; skipped')
         return
-    _, _, skills = source_paths(ctx.args.local_path)
+    _, skills = source_paths(ctx.args.local_path)
     target_root = Path(ctx.args.agent_skills)
     target_root = target_root if target_root.is_absolute() else ctx.repo / target_root
     for src in sorted(p for p in skills.iterdir() if p.is_dir()):
@@ -291,86 +304,82 @@ def install_agent_skills(ctx):
             shutil.copytree(src, target, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
 
 
+def unresolved_commands(ctx, specify):
+    bad = []
+    for name in CORE_COMMANDS:
+        out = ctx.run([specify, 'preset', 'resolve', name], mutate=False)
+        if ('presets/' + PRESET_ID + '/') not in out.replace('\\', '/').replace('\n', ''):
+            bad.append(name)
+    return bad
+
+
 def post_checks(ctx, specify):
     if ctx.dry:
         return
-    if not installed(ctx, specify, 'extension', EXT_ID):
-        raise InstallError('post-install check failed: extension not listed')
     if not installed(ctx, specify, 'preset', PRESET_ID):
         raise InstallError('post-install check failed: preset not listed')
-    for name in CORE_COMMANDS:
-        out = ctx.run([specify, 'preset', 'resolve', name], mutate=False)
-        if PRESET_ID not in out.replace('\\', '/').replace('\n', ''):
-            raise InstallError(f'post-install check failed: {name} does not resolve to the {PRESET_ID} preset')
+    bad = unresolved_commands(ctx, specify)
+    if bad:
+        raise InstallError(f'post-install check failed: {", ".join(bad)} do not resolve to the {PRESET_ID} preset')
     ctx.log('post-install checks passed')
 
 
 def cmd_install(ctx, specify, update=False):
     preflight(ctx, specify)
-    ext_ok = installed(ctx, specify, 'extension', EXT_ID)
-    preset_ok = installed(ctx, specify, 'preset', PRESET_ID)
-    if ext_ok and preset_ok and not update:
+    present = installed(ctx, specify, 'preset', PRESET_ID)
+    old = [x for x in OUR_OLD if installed(ctx, specify, *x)]
+    if present and not old and not update:
         ctx.log('already installed')
         return {'status': 'already installed'}
-    with tempfile.TemporaryDirectory(prefix=EXT_ID + '-install-') as work:
-        ext_src, preset_src = locate_sources(ctx, work)
-        if ext_src is not None and (ext_src / 'skills.lock.yml').is_file():
-            verify_lock(ext_src)
-            ctx.log('skill lock verified (before)')
+    with tempfile.TemporaryDirectory(prefix=PRESET_ID + '-install-') as work:
+        preset_src = locate_source(ctx, work)
         backup = backup_registries(ctx)
         try:
-            ext_cmd = [specify, 'extension', 'add'] + ([str(ext_src), '--dev'] if ext_src else [EXT_ID])
-            preset_cmd = [specify, 'preset', 'add'] + (['--dev', str(preset_src)] if preset_src else [PRESET_ID])
+            removed = remove_old_install(ctx, specify)
+            if present:
+                ctx.run([specify, 'preset', 'remove', PRESET_ID])
+            cmd = [specify, 'preset', 'add'] + (['--dev', str(preset_src)] if preset_src else [PRESET_ID])
             if ctx.args.source == 'catalog' and ctx.args.version:
-                ext_cmd += ['--version', ctx.args.version]
-                preset_cmd += ['--version', ctx.args.version]
-            if update:
-                ext_cmd.append('--force')
-                if preset_ok:
-                    ctx.run([specify, 'preset', 'remove', PRESET_ID])
-            if not ext_ok or update:
-                ctx.run(ext_cmd)
-            ctx.run(preset_cmd + ['--priority', str(ctx.args.priority)])
-            if ctx.args.inject_failure == 'after-extension':
-                raise InstallError('injected failure after extension add')
-            bootstrap_config(ctx, ext_src)
-            installed_ext = ctx.repo / '.specify' / 'extensions' / EXT_ID
-            if not ctx.dry and installed_ext.is_dir():
-                verify_lock(installed_ext)
-                ctx.log('skill lock verified (after)')
+                cmd += ['--version', ctx.args.version]
+            ctx.run(cmd + ['--priority', str(ctx.args.priority)])
+            if ctx.args.inject_failure == 'after-preset':
+                raise InstallError('injected failure after preset add')
+            bootstrap_config(ctx, preset_src)
+            installed_dir = ctx.repo / '.specify' / 'presets' / PRESET_ID
+            if not ctx.dry and installed_dir.is_dir():
+                verify_lock(installed_dir)
+                ctx.log('skill lock verified (installed copy)')
             post_checks(ctx, specify)
             install_agent_skills(ctx)
         except InstallError as exc:
             if not ctx.dry:
-                # Remove what this run added while it is still registered, then restore the registries.
-                if not preset_ok or update:
-                    subprocess.run([specify, 'preset', 'remove', PRESET_ID], cwd=ctx.repo, capture_output=True, text=True, stdin=subprocess.DEVNULL)
-                if not ext_ok:
-                    subprocess.run([specify, 'extension', 'remove', EXT_ID, '--force'], cwd=ctx.repo, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+                subprocess.run([specify, 'preset', 'remove', PRESET_ID], cwd=ctx.repo, capture_output=True, text=True, stdin=subprocess.DEVNULL)
                 restore_registries(ctx, backup)
+                if present or old:
+                    ctx.log('the earlier install was removed before the failure; reinstall it from its own release')
             raise exc
-    ctx.log('done. Restart your AI agent if the new commands do not appear.')
-    return {'status': 'updated' if update else 'installed'}
+    ctx.log('done. Restart your AI agent if the updated commands do not appear.')
+    return {'status': 'updated' if (update or present or old) else 'installed'}
 
 
 def cmd_verify(ctx, specify):
     preflight(ctx, specify)
     problems = []
-    if not installed(ctx, specify, 'extension', EXT_ID):
-        problems.append('extension not installed')
     if not installed(ctx, specify, 'preset', PRESET_ID):
         problems.append('preset not installed')
-    ext_dir = ctx.repo / '.specify' / 'extensions' / EXT_ID
-    if ext_dir.is_dir():
+    for kind, ident in OUR_OLD:
+        if installed(ctx, specify, kind, ident):
+            problems.append(f'older {kind} {ident} still installed; run update')
+    preset_dir = ctx.repo / '.specify' / 'presets' / PRESET_ID
+    if preset_dir.is_dir():
         try:
-            verify_lock(ext_dir)
+            verify_lock(preset_dir)
         except InstallError as exc:
             raise InstallError(str(exc), INTEGRITY)
-        cfg = ext_dir / CONFIG_NAME
-        template = ext_dir / 'config' / (EXT_ID + '-config.template.yml')
-        locked = locked_ids(template)
+        problems += [f'{name} does not resolve to the preset' for name in unresolved_commands(ctx, specify)]
+        cfg = ctx.repo / '.specify' / CONFIG_NAME
         if cfg.is_file():
-            for ident in locked:
+            for ident in locked_ids(preset_dir / 'bindings.yml'):
                 if binding_disabled(cfg.read_text(encoding='utf-8'), ident):
                     problems.append(f'locked binding {ident} is disabled')
     if problems:
@@ -384,10 +393,10 @@ def _binding_blocks(text):
     return {b.split()[0].strip('"'): b for b in blocks if b.strip()}
 
 
-def locked_ids(template):
-    if not Path(template).is_file():
+def locked_ids(registry):
+    if not Path(registry).is_file():
         return []
-    return [i for i, b in _binding_blocks(Path(template).read_text(encoding='utf-8')).items()
+    return [i for i, b in _binding_blocks(Path(registry).read_text(encoding='utf-8')).items()
             if re.search(r'locked:\s*true', b)]
 
 
@@ -398,9 +407,10 @@ def binding_disabled(text, ident):
 
 def cmd_status(ctx, specify):
     preflight(ctx, specify)
-    info = {'extension': installed(ctx, specify, 'extension', EXT_ID), 'preset': installed(ctx, specify, 'preset', PRESET_ID)}
-    ctx.log(f'extension {EXT_ID}: {"installed" if info["extension"] else "absent"}; '
-            f'preset {PRESET_ID}: {"installed" if info["preset"] else "absent"}')
+    info = {'preset': installed(ctx, specify, 'preset', PRESET_ID),
+            'older_install': [f'{k} {i}' for k, i in OUR_OLD if installed(ctx, specify, k, i)]}
+    ctx.log(f'preset {PRESET_ID}: {"installed" if info["preset"] else "absent"}'
+            + (f'; older install present: {", ".join(info["older_install"])}' if info['older_install'] else ''))
     return info
 
 
@@ -410,27 +420,25 @@ def cmd_uninstall(ctx, specify):
     try:
         if installed(ctx, specify, 'preset', PRESET_ID):
             ctx.run([specify, 'preset', 'remove', PRESET_ID])
-        if installed(ctx, specify, 'extension', EXT_ID):
-            ctx.run([specify, 'extension', 'remove', EXT_ID, '--force', '--keep-config'])
     except InstallError:
         if not ctx.dry:
             restore_registries(ctx, backup)
         raise
+    ctx.log(f'project settings in .specify/{CONFIG_NAME} were kept')
     return {'status': 'uninstalled'}
 
 
 def cmd_package(args):
-    """Build one zip holding the staged extension (with its skills) and the preset, plus its SHA-256."""
-    ext, preset, skills = source_paths(args.local_path)
-    version = re.search(r'^\s+version:\s*"?([\d.]+)', (ext / 'extension.yml').read_text(encoding='utf-8'), re.M).group(1)
+    """Build one zip holding the staged preset (with its skills), plus its SHA-256."""
+    preset, skills = source_paths(args.local_path)
+    version = re.search(r'^\s+version:\s*"?([\d.]+)', (preset / 'preset.yml').read_text(encoding='utf-8'), re.M).group(1)
     out_dir = Path(args.output).resolve()
-    archive = out_dir / f'{EXT_ID}-{version}.zip'
+    archive = out_dir / f'{PRESET_ID}-{version}.zip'
     if archive.exists():
         raise InstallError(f'{archive} already exists; use a new --output or version')
-    with tempfile.TemporaryDirectory(prefix=EXT_ID + '-package-') as work:
+    with tempfile.TemporaryDirectory(prefix=PRESET_ID + '-package-') as work:
         root = Path(work)
-        stage_extension(ext, skills, root / EXT_ID)
-        shutil.copytree(preset, root / PRESET_ID, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+        stage_preset(preset, skills, root / PRESET_ID)
         out_dir.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(archive, 'x', compression=zipfile.ZIP_DEFLATED) as z:
             for path in sorted(p for p in root.rglob('*') if p.is_file()):
@@ -463,13 +471,13 @@ def build_parser():
     ap.add_argument('--version', help='exact catalog release to install')
     ap.add_argument('--priority', type=int, default=5, help='preset priority (lower wins), default 5')
     ap.add_argument('--profile', choices=['default', 'strict'], default='default')
-    ap.add_argument('--set', action='append', metavar='key=value', help='override a config value')
+    ap.add_argument('--set', action='append', metavar='key=value', help='override a setting in the new project config')
     ap.add_argument('--agent-skills', metavar='DIR', help='also copy the skills into this agent skills folder, relative to the repo (for example .claude/skills)')
     ap.add_argument('--output', default='dist', help='package: output folder (default dist)')
     ap.add_argument('--specify', help='path to the specify executable')
     ap.add_argument('--dry-run', action='store_true')
     ap.add_argument('--json', action='store_true')
-    ap.add_argument('--inject-failure', choices=['after-extension'], help=argparse.SUPPRESS)
+    ap.add_argument('--inject-failure', choices=['after-preset'], help=argparse.SUPPRESS)
     return ap
 
 

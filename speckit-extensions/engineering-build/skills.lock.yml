@@ -1,8 +1,8 @@
-# Skills the engineering-build extension ships, pinned by commit and SHA-256.
+# Skills the engineering-build preset ships, pinned by commit and SHA-256.
 # Sources live in the repository's top-level skills/ folder; the installer copies
-# exactly these into .specify/extensions/engineering-build/skills/.
+# exactly these into .specify/presets/engineering-build/skills/.
 # Regenerate hashes from the repository root with:
-#   python speckit-extensions/engineering-build/scripts/verify_lock.py --ext speckit-extensions/engineering-build --skills skills --update
+#   python speckit-extensions/engineering-build/scripts/verify_lock.py --preset speckit-extensions/engineering-build --skills skills --update
 # Upstream skills are copied unmodified and never fetched at run time.
 schema_version: "1.0"
 skills:
@@ -11,7 +11,7 @@ skills:
     commit: local
     license: internal
     version: "3.0.0"
-    sha256: 38675dd98fd317b496b8b8fde39ad843ec04480ba40be902f24791b1d66986b9
+    sha256: bdf6fc38e17b704ada310054130c6ddec9c7eafa34072a311976b10a6d3a0c0d
   - id: grill-me
     source: https://github.com/mattpocock/skills/tree/4ae2317ddb22b046e26455e4f9c9b3aaaf62212d/docs/productivity
     commit: 4ae2317ddb22b046e26455e4f9c9b3aaaf62212d

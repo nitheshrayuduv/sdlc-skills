@@ -1,6 +1,6 @@
 # Spec Kit Extension Spec: Skill-Driven Clarify, Plan and Test Phases
 
-> **Implementation note.** In this repository the extension ships as `engineering-build` (`speckit-extensions/engineering-build/`) and the preset as `engineering-build-preset` (its `preset/` folder). Commands are `speckit.engineering-build.<name>`, the registry is `engineering-build-config.yml`, and skills live in the top-level `skills/` folder, copied in by the installer `speckit-extensions/install.py`. The catalog entry is `speckit-extensions/catalog.json`. Names and paths below (`sdlc-skills`, `org-sdlc`, `installer/`, `catalog/`) are the original design names.
+> **Implementation note.** This spec was written for an extension plus a preset. The shipped design is a single preset, `engineering-build` (`speckit-extensions/engineering-build/`), with no extension. Spec Kit 1.2.5 copies the whole preset folder on install, so the preset carries the binding registry (`bindings.yml`), the runner instructions (`guide/bindings.md`), adapters, detectors and the locked skills, and it wraps all six core commands: each wrap has a before section and an after section in place of the before and after hooks. Project overrides live in `.specify/engineering-build.yml`. Skills live in the top-level `skills/` folder and are copied in by `speckit-extensions/install.py`; the catalog entry is `speckit-extensions/catalog.json`. Names and paths below (`sdlc-skills`, `org-sdlc`, `installer/`, `catalog/`, hooks, `speckit.sdlc-skills.*` commands) are the original design.
 
 Oct 28, 2026
 

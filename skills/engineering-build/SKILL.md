@@ -13,9 +13,9 @@ This skill works on its own, and it also calls a small set of companion skills a
 
 For a Spec Kit feature, read [Spec Kit stages](references/speckit.md) first. Apply the stage-specific instructions alongside the standard Spec Kit command. Use the existing feature folder returned by Spec Kit; keep spec.md, plan.md and tasks.md as the main documents. The Spec Kit file rules take precedence over the standalone layout below. Do not create a second plan under docs/plans or a duplicate implementation.md.
 
-Prefer the native Spec Kit extension and preset described in [Extension integration](references/extension.md). The extension adds mandatory before/after hooks to constitution, specify, clarify, plan, tasks and implement; the preset wraps clarify, plan, tasks and implement so the companion skills run at the right point inside each. Installation happens in the repository; a personal skill alone does not register hooks. When the extension is installed, use its bundled copy of this skill as the Spec Kit source of truth. Do not also activate the older engineering-plan extension or org-sdlc preset. A mandatory hook is agent guidance, not proof that a model followed it.
+Prefer the native Spec Kit preset described in [Preset integration](references/preset.md). It wraps constitution, specify, clarify, plan, tasks and implement, adding Engineering Build steps before and after the core steps and running the companion skills at the right point inside each. Installation happens in the repository; a personal skill alone does not change the Spec Kit commands. When the preset is installed, use its bundled copy of this skill as the Spec Kit source of truth. Do not also activate the older engineering-plan extension or org-sdlc preset. A wrapped command is agent guidance, not proof that a model followed it.
 
-Keep shared extension source in its own repository when distributing it to multiple teams. Install a chosen version into each target; keep project-specific standards, constitution and feature documents in that target. Use the standalone repository's installer and maintenance instructions, with no dependency on this personal skill installation.
+Keep shared preset source in its own repository when distributing it to multiple teams. Install a chosen version into each target; keep project-specific standards, constitution and feature documents in that target. Use the standalone repository's installer and maintenance instructions, with no dependency on this personal skill installation.
 
 During an explicitly requested Spec Kit implement command, implement the approved tasks using the design, security controls and repository standards. That command authorizes normal code edits and relevant local checks; it does not authorize deployment, production access or unrelated changes. At all earlier stages, write documentation only.
 
@@ -33,7 +33,7 @@ Engineering Build owns the overall design, security, standards, tasks and eviden
 
 How to call them:
 
-- **With the Spec Kit extension installed**, do not load these skills yourself. The `speckit.engineering-build.run <stage>` command reads the binding registry, decides applicability with its detectors, loads the pinned skill from `.specify/extensions/engineering-build/skills/<id>/` with its adapter, and records every run or skip in `skill-runs.md` and the `## Skill Applicability` table in `plan.md`. Repositories turn bindings on or off in `engineering-build-config.yml`.
+- **With the Spec Kit preset installed**, do not load these skills yourself. The wrapped core commands follow `.specify/presets/engineering-build/guide/bindings.md`, which reads the binding registry, decides applicability with its detectors, loads the pinned skill from `.specify/presets/engineering-build/skills/<id>/` with its adapter, and records every run or skip in `skill-runs.md` and the `## Skill Applicability` table in `plan.md`. Repositories turn bindings on or off in `.specify/engineering-build.yml`.
 - **Without Spec Kit**, apply the same table by hand: decide each row with quoted evidence, read the companion skill's `SKILL.md` from the agent's skills folder (installed next to this one), follow it, and fold its output into the plan pages. Record each decision, including skips, in a short Skill Applicability table in the plan README. If a companion skill is not installed, say so and continue with this skill's own guidance.
 - Run the database step before the API step, so resources follow the agreed data model. Never let a companion skill override this skill's security, evidence and plain-English rules; where they conflict, these rules win and the conflict is noted.
 
@@ -109,7 +109,7 @@ For an updated plan, reuse its feature folder, compare current code and requirem
 
 ## References
 
-- [Extension integration](references/extension.md): Native Spec Kit packaging, hooks and migration.
+- [Preset integration](references/preset.md): Native Spec Kit packaging, wrapped commands and migration.
 
 - [Spec Kit stages](references/speckit.md): Required stage behavior, file ownership, constitution and installation resources.
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Verify (or regenerate) skills.lock.yml for the vendored skills. Standard library only.
 
-  verify_lock.py --ext <extension dir>                      exit 0 ok, 3 on drift
-  verify_lock.py --ext <extension dir> --update             rewrite sha256 values in the lock
-  verify_lock.py --ext <extension dir> --skills <skills dir> check a source checkout
+  verify_lock.py --preset <preset dir>                      exit 0 ok, 3 on drift
+  verify_lock.py --preset <preset dir> --update             rewrite sha256 values in the lock
+  verify_lock.py --preset <preset dir> --skills <skills dir> check a source checkout
 
-Skills live in <extension dir>/skills/ once installed. In the source repository they
+Skills live in <preset dir>/skills/ once installed. In the source repository they
 live in the top-level skills/ folder; the installer copies the locked ones in.
 The hash covers every file in skills/<id>/ (sorted paths, CRLF normalised to LF),
 so a checkout with autocrlf produces the same digest.
@@ -46,11 +46,11 @@ def read_lock(text):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument('--ext', required=True, help='extension directory (contains skills.lock.yml)')
-    ap.add_argument('--skills', help='directory holding the skill folders (default: <ext>/skills)')
+    ap.add_argument('--preset', required=True, help='preset directory (contains skills.lock.yml)')
+    ap.add_argument('--skills', help='directory holding the skill folders (default: <preset>/skills)')
     ap.add_argument('--update', action='store_true', help='recompute and write sha256 values')
     args = ap.parse_args(argv)
-    ext = Path(args.ext)
+    ext = Path(args.preset)
     skills_root = Path(args.skills) if args.skills else ext / 'skills'
     lock_path = ext / 'skills.lock.yml'
     text = lock_path.read_text(encoding='utf-8')

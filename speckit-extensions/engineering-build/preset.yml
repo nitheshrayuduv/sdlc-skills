@@ -1,0 +1,22 @@
+schema_version: "1.0"
+preset:
+  id: engineering-build
+  name: Engineering Build
+  version: "3.0.0"
+  description: Engineering Build across the Spec Kit workflow. Wraps the six core commands to add architecture, security and traceability guidance, and calls pinned companion skills (grill-me, database-schema-designer, api-designer, playwright-expert, ponytail) at the right point in each stage.
+  license: MIT
+requires:
+  speckit_version: ">=1.2.0,<2.0.0"
+provides:
+  templates:
+    - { type: command, name: speckit.constitution, file: commands/speckit.constitution.md, strategy: wrap }
+    - { type: command, name: speckit.specify,      file: commands/speckit.specify.md,      strategy: wrap }
+    - { type: command, name: speckit.clarify,      file: commands/speckit.clarify.md,      strategy: wrap }
+    - { type: command, name: speckit.plan,         file: commands/speckit.plan.md,         strategy: wrap }
+    - { type: command, name: speckit.tasks,        file: commands/speckit.tasks.md,        strategy: wrap }
+    - { type: command, name: speckit.implement,    file: commands/speckit.implement.md,    strategy: wrap }
+tags:
+  - architecture
+  - security
+  - skills
+  - testing

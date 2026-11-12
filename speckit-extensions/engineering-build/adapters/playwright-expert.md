@@ -14,7 +14,7 @@ Every test title includes its scenario ID, for example `US1-AS2 rejects an expir
 
 ## Rules enforced after writing
 
-Run `python .specify/extensions/engineering-build/scripts/check_playwright_rules.py <files...> --config playwright.config.ts`. It exits non-zero when a failing rule is hit.
+Run `python .specify/presets/engineering-build/scripts/check_playwright_rules.py <files...> --config playwright.config.ts`. It exits non-zero when a failing rule is hit.
 
 | Rule from the skill | Check | Severity |
 | --- | --- | --- |

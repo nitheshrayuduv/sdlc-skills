@@ -20,7 +20,7 @@ Create supporting files only when useful. Keep small designs/security sections i
 
 ## Apply the skill at every stage
 
-**Constitution:** Incorporate a mandatory Engineering Build principle in .specify/memory/constitution.md. When the extension is installed, reference .specify/extensions/engineering-build/skills/engineering-build/SKILL.md and its references/speckit.md stage map. Otherwise reference .agents/skills/engineering-build/SKILL.md and this stage map. Use relative Markdown links when adding hyperlinks. Preserve other principles. Follow Spec Kit's constitution version/date and sync-report rules. Ensure the downstream command/template instructions retain the principle.
+**Constitution:** Incorporate a mandatory Engineering Build principle in .specify/memory/constitution.md. When the preset is installed, reference .specify/presets/engineering-build/skills/engineering-build/SKILL.md and its references/speckit.md stage map. Otherwise reference .agents/skills/engineering-build/SKILL.md and this stage map. Use relative Markdown links when adding hyperlinks. Preserve other principles. Follow Spec Kit's constitution version/date and sync-report rules. Ensure the downstream command/template instructions retain the principle.
 
 **Specify and clarify:** At clarify, the grill-me companion skill interviews the user first, in rounds, with edge-case lenses; record its answers under `## Clarifications`. Then use this skill to ask about boundaries, affected users, compatibility, sensitive data and observable success. Keep spec.md focused on what and why; do not force design choices into a product specification. Record requirements once using the existing IDs. Technical options belong to plan/research later. State unresolved product decisions rather than fabricating agreement.
 
@@ -32,8 +32,8 @@ Create supporting files only when useful. Keep small designs/security sections i
 
 ## Keep automatic use explicit
 
-Prefer the native extension and preset in [Extension integration](extension.md). The preset calls the companion-skill runner inside clarify, plan, tasks and implement. The extension's before hooks prepare stage context; its after hooks reconcile the owning artifacts and run any companion-skill bindings the preset did not. The manifest uses optional: false with no conditional expressions for all twelve hooks. Installation registers them with Spec Kit; it does not by itself update an existing constitution. Run the extension’s configure command after installation. Later constitution updates run that same action automatically.
+Prefer the native preset in [Preset integration](preset.md). It wraps all six core commands: each gets an Engineering Build section before the core steps that prepares stage context, and one after that reconciles the owning artifacts. The companion-skill bindings run inside clarify, plan, tasks and implement at the point each stage needs them. Running `/speckit-constitution` after installation adds the Engineering Build principle to an existing constitution.
 
-Verify both hook registration and the installed agent’s core command files after installation or upgrades. Those files must dispatch before and after hooks for all six stages. An old generated command or a project override can omit them even when an extension is installed. Never claim automatic use from manifest presence alone.
+Verify the installed agent's core command files after installation or upgrades: each of the six must contain the Engineering Build sections (`specify preset resolve speckit.plan` shows the composition). A project override or a higher-priority preset can replace them. Never claim automatic use from installation alone.
 
-Do not keep the older engineering-plan extension or org-sdlc preset active next to this one. Preserve a separately installed standalone skill for non-Spec-Kit planning if useful.
+Do not keep the older engineering-plan extension, the engineering-build extension of earlier releases, or the org-sdlc preset active next to this one. Preserve a separately installed standalone skill for non-Spec-Kit planning if useful.
