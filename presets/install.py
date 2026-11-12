@@ -3,16 +3,16 @@
 
 Run from the root of the repository to change (or pass --repo PATH), with sdlc-skills cloned next to it:
 
-  python ../sdlc-skills/speckit-extensions/install.py install   [--repo PATH] [--source local|catalog|url|bundle] [--agent-skills DIR] ...
-  python ../sdlc-skills/speckit-extensions/install.py update    [--repo PATH]
-  python ../sdlc-skills/speckit-extensions/install.py verify    [--repo PATH] [--json]
-  python ../sdlc-skills/speckit-extensions/install.py status    [--repo PATH]
-  python ../sdlc-skills/speckit-extensions/install.py uninstall [--repo PATH]
-  python speckit-extensions/install.py package   [--output dist]     (inside sdlc-skills)
+  python ../sdlc-skills/presets/install.py install   [--repo PATH] [--source local|catalog|url|bundle] [--agent-skills DIR] ...
+  python ../sdlc-skills/presets/install.py update    [--repo PATH]
+  python ../sdlc-skills/presets/install.py verify    [--repo PATH] [--json]
+  python ../sdlc-skills/presets/install.py status    [--repo PATH]
+  python ../sdlc-skills/presets/install.py uninstall [--repo PATH]
+  python presets/install.py package   [--output dist]     (inside sdlc-skills)
 
 Spec Kit itself is installed separately (`specify init`). The preset's skills live in the
 top-level skills/ folder, not inside the preset, so this script stages
-speckit-extensions/engineering-build/ together with the skills its skills.lock.yml names,
+presets/engineering-build/ together with the skills its skills.lock.yml names,
 checks every hash, then runs `specify preset add --dev <staged>`. It never writes Spec Kit's
 registries itself. An older install that used the engineering-build extension is removed first.
 Standard library only. Exit codes: 0 success, 1 failure, 2 preflight failure, 3 integrity failure.
@@ -166,7 +166,7 @@ def stage_preset(preset_src, skills_src, dest):
 def source_paths(local_path=None):
     """(preset, skills) source folders in an sdlc-skills checkout."""
     base = Path(local_path).resolve() if local_path else REPO_ROOT
-    return base / 'speckit-extensions' / PRESET_ID, base / 'skills'
+    return base / 'presets' / PRESET_ID, base / 'skills'
 
 
 def locate_source(ctx, workdir):

@@ -2,7 +2,7 @@
 
 SDLC skills for coding agents, plus one Spec Kit preset that runs them at the right stage of a feature.
 
-Install Spec Kit in your repository, then run this repository's `speckit-extensions/install.py` from your repository's root. It adds the **engineering-build** preset with the skills it uses. See [Install the Spec Kit preset](#install-the-spec-kit-preset).
+Install Spec Kit in your repository, then run this repository's `presets/install.py` from your repository's root. It adds the **engineering-build** preset with the skills it uses. See [Install the Spec Kit preset](#install-the-spec-kit-preset).
 
 ## Repository layout
 
@@ -17,7 +17,7 @@ sdlc-skills/
 │   ├── api-designer/                        OpenAPI contract design (companion, vendored, MIT)
 │   ├── playwright-expert/                   end-to-end tests (companion, vendored, MIT)
 │   └── ponytail/                            smallest complete change at implement (companion, vendored, MIT)
-└── speckit-extensions/
+└── presets/
     ├── install.py                           installs the preset and its skills into a Spec Kit repo
     ├── catalog.json                         template entry for an internal Spec Kit catalog
     └── engineering-build/                   the Spec Kit preset
@@ -72,13 +72,13 @@ git clone https://github.com/nitheshrayuduv/sdlc-skills.git ../sdlc-skills
 Preview the install. The installer changes the folder you run it from:
 
 ```bash
-python ../sdlc-skills/speckit-extensions/install.py install --dry-run
+python ../sdlc-skills/presets/install.py install --dry-run
 ```
 
 Then install:
 
 ```bash
-python ../sdlc-skills/speckit-extensions/install.py install
+python ../sdlc-skills/presets/install.py install
 ```
 
 The installer:
@@ -113,7 +113,7 @@ Restart your agent. If your repository already has a constitution, run the const
 Check the install:
 
 ```bash
-python ../sdlc-skills/speckit-extensions/install.py verify
+python ../sdlc-skills/presets/install.py verify
 ```
 
 ```bash
@@ -127,14 +127,14 @@ Claude spells Spec Kit commands with hyphens (`/speckit-plan`); some agents use 
 ### Update or remove
 
 ```bash
-python ../sdlc-skills/speckit-extensions/install.py update
+python ../sdlc-skills/presets/install.py update
 ```
 
 ```bash
-python ../sdlc-skills/speckit-extensions/install.py uninstall
+python ../sdlc-skills/presets/install.py uninstall
 ```
 
-`update` keeps `.specify/engineering-build.yml`. `uninstall` leaves that file, feature documents and constitution text in place. If you cloned this repository somewhere else, replace `../sdlc-skills` with that path. All commands and options: [speckit-extensions/README.md](speckit-extensions/README.md).
+`update` keeps `.specify/engineering-build.yml`. `uninstall` leaves that file, feature documents and constitution text in place. If you cloned this repository somewhere else, replace `../sdlc-skills` with that path. All commands and options: [presets/README.md](presets/README.md).
 
 If you used the much older packages, remove them before installing. The installer warns if they are still present:
 
@@ -201,22 +201,22 @@ Here `enabled: false` turns the api-designer skill off for this repository. `imp
 
 When a skill's tooling is missing (for example, no network for the API lint), the stage records a warning and continues. Set `required: true` on a binding, or install with `--profile strict`, to stop the stage instead.
 
-More detail: [preset README](speckit-extensions/engineering-build/README.md), [install](speckit-extensions/engineering-build/docs/install.md), [usage](speckit-extensions/engineering-build/docs/usage.md), [maintenance](speckit-extensions/engineering-build/docs/maintaining.md), [design spec](speckit-extensions/engineering-build/docs/specs/spec-kit-extension-spec.md).
+More detail: [preset README](presets/engineering-build/README.md), [install](presets/engineering-build/docs/install.md), [usage](presets/engineering-build/docs/usage.md), [maintenance](presets/engineering-build/docs/maintaining.md), [design spec](presets/engineering-build/docs/specs/spec-kit-extension-spec.md).
 
 ## Add a skill to a stage
 
 The binding registry decides which skill runs where. Adding a skill to an existing stage needs no change to the wrapped commands:
 
-1. Put the skill in `skills/<id>/` with its license. Add an entry to `speckit-extensions/engineering-build/skills.lock.yml`.
+1. Put the skill in `skills/<id>/` with its license. Add an entry to `presets/engineering-build/skills.lock.yml`.
 2. Write `adapters/<id>.md`: which Spec Kit files it reads, where its output goes, and its quality gate.
 3. If deciding when it applies needs judgment, add `detectors/<name>.md`. It answers `yes`, `no` or `unknown`, with evidence.
 4. Add a binding to `bindings.yml`. Triggers are `always`, `detect`, `task_tag`, `path_glob`, `any` and `all`.
-5. Refresh the hashes and run the tests, then reinstall from your repository's root with `python ../sdlc-skills/speckit-extensions/install.py update`.
+5. Refresh the hashes and run the tests, then reinstall from your repository's root with `python ../sdlc-skills/presets/install.py update`.
 
 To refresh the hashes:
 
 ```bash
-python speckit-extensions/engineering-build/scripts/verify_lock.py --preset speckit-extensions/engineering-build --skills skills --update
+python presets/engineering-build/scripts/verify_lock.py --preset presets/engineering-build --skills skills --update
 ```
 
 Any edit to a shipped skill, including `skills/engineering-build/`, needs this refresh.
@@ -224,7 +224,7 @@ Any edit to a shipped skill, including `skills/engineering-build/`, needs this r
 ## Develop and test
 
 ```bash
-python -m unittest discover -s speckit-extensions/engineering-build/tests -v
+python -m unittest discover -s presets/engineering-build/tests -v
 ```
 
 The suite checks the preset manifest, the wrapped commands, bindings, lock integrity, packaging, and the Playwright rule checker. It uses temporary folders and needs no network. When `specify` is on the PATH, it also runs real installs, the upgrade from the old extension, rollback, dry-run, bulk mode and `--agent-skills`. It takes a few minutes.

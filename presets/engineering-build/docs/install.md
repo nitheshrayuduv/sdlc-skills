@@ -23,14 +23,14 @@ Add `--ignore-agent-tools` if the agent CLI is not on PATH, and `--script ps` on
 From the application repository's root, with sdlc-skills cloned next to it (`git clone https://github.com/nitheshrayuduv/sdlc-skills.git ../sdlc-skills`). The installer changes the folder you run it from; `--repo PATH` picks another one:
 
 ```bash
-python ../sdlc-skills/speckit-extensions/install.py install --dry-run
-python ../sdlc-skills/speckit-extensions/install.py install
+python ../sdlc-skills/presets/install.py install --dry-run
+python ../sdlc-skills/presets/install.py install
 ```
 
 The installer:
 
 1. checks the target has `.specify/` and the CLI version, and warns about older `engineering-plan`, `sdlc-skills` or `org-sdlc` installs;
-2. stages `speckit-extensions/engineering-build/` with the skills named in `skills.lock.yml`, copied from the top-level `skills/` folder, and verifies every SHA-256;
+2. stages `presets/engineering-build/` with the skills named in `skills.lock.yml`, copied from the top-level `skills/` folder, and verifies every SHA-256;
 3. backs up the Spec Kit registries and removes an earlier Engineering Build install (the `engineering-build` extension and `engineering-build-preset`), moving its binding config to `.specify/engineering-build.yml`;
 4. runs `specify preset add --dev <staged> --priority 5`;
 5. creates `.specify/engineering-build.yml` only if absent, verifies the installed lock, and checks the six wrapped commands resolve to the preset. Any failure rolls back.
@@ -42,7 +42,7 @@ Add `--agent-skills .claude/skills` (or `.github/skills`, `.agents/skills`) to a
 If the repository already has a constitution, run `/speckit-constitution` once in the agent chat (Codex: `$speckit-constitution`). Its wrapped after step adds the Engineering Build principle. Then:
 
 ```bash
-python ../sdlc-skills/speckit-extensions/install.py verify
+python ../sdlc-skills/presets/install.py verify
 specify preset resolve speckit.plan
 ```
 
@@ -50,7 +50,7 @@ Expect the composition chain to end with a `[wrap]` from `engineering-build`, fo
 
 ## Update, migrate, remove
 
-- Update: `python ../sdlc-skills/speckit-extensions/install.py update`. `.specify/engineering-build.yml` is kept.
+- Update: `python ../sdlc-skills/presets/install.py update`. `.specify/engineering-build.yml` is kept.
 - Migrate from an earlier Engineering Build release (extension + `engineering-build-preset`): run `install` or `update`; the installer removes the old packages and keeps their config. Then run `/speckit-constitution` so the principle links to `.specify/presets/engineering-build/`.
 - Migrate from `engineering-plan` or `sdlc-skills` + `org-sdlc`: `specify preset remove org-sdlc`, `specify extension remove sdlc-skills --keep-config`, `specify extension remove engineering-plan`, then install. Move any binding overrides from `sdlc-skills-config.yml` into `.specify/engineering-build.yml`.
-- Remove: `python ../sdlc-skills/speckit-extensions/install.py uninstall`. Project settings, feature documents and constitution text remain.
+- Remove: `python ../sdlc-skills/presets/install.py uninstall`. Project settings, feature documents and constitution text remain.

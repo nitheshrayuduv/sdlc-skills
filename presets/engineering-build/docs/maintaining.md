@@ -28,8 +28,8 @@ To upgrade an upstream skill, copy the new version in, update `commit` and `vers
 From the repository root:
 
 ```bash
-python speckit-extensions/engineering-build/scripts/verify_lock.py --preset speckit-extensions/engineering-build --skills skills --update
-python -m unittest discover -s speckit-extensions/engineering-build/tests -v
+python presets/engineering-build/scripts/verify_lock.py --preset presets/engineering-build --skills skills --update
+python -m unittest discover -s presets/engineering-build/tests -v
 ```
 
 Installs are exercised against real temporary Spec Kit projects when `specify` is on PATH.
@@ -39,7 +39,7 @@ Installs are exercised against real temporary Spec Kit projects when `specify` i
 Bump `preset.version` in `preset.yml` and `skills/engineering-build/VERSION`, then refresh the hashes. Then:
 
 ```bash
-python speckit-extensions/install.py package --output dist
+python presets/install.py package --output dist
 ```
 
-This writes `dist/engineering-build-<version>.zip` (the staged preset with its skills) and its `.sha256`. Publish both, and fill `download_url` and `sha256` in `speckit-extensions/catalog.json`. Consumers install a release with `install.py install --source url --url <zip> --sha256 <hash>` or `--source bundle --bundle <zip>`.
+This writes `dist/engineering-build-<version>.zip` (the staged preset with its skills) and its `.sha256`. Publish both, and fill `download_url` and `sha256` in `presets/catalog.json`. Consumers install a release with `install.py install --source url --url <zip> --sha256 <hash>` or `--source bundle --bundle <zip>`.

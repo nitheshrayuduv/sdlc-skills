@@ -1,6 +1,6 @@
 # Native Spec Kit preset
 
-Use Spec Kit 1.2.0 or later within major version 1, installed separately in the target repository (`specify init`). Engineering Build ships as one Spec Kit preset, `engineering-build`, from `speckit-extensions/engineering-build/` in the sdlc-skills repository. `speckit-extensions/install.py` installs it.
+Use Spec Kit 1.2.0 or later within major version 1, installed separately in the target repository (`specify init`). Engineering Build ships as one Spec Kit preset, `engineering-build`, from `presets/engineering-build/` in the sdlc-skills repository. `presets/install.py` installs it.
 
 The preset wraps the six core commands: constitution, specify, clarify, plan, tasks and implement. Each wrapped command has an **Engineering Build: before** section that prepares the stage and an **Engineering Build: after** section that completes and checks the stage's artifacts, around the unchanged core steps. The companion skills run at a fixed point inside the stage: grill-me before the core clarify steps, database-schema-designer and api-designer after the core design draft, playwright-expert after task generation, and ponytail and playwright-expert for each implement task. The preset also holds the binding registry (`bindings.yml`), adapters, detectors and shared rules (`guide/`).
 

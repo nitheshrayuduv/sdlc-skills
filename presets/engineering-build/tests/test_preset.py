@@ -1,6 +1,6 @@
 """Static and script-level checks for the engineering-build preset.
 
-Run: python -m unittest discover -s speckit-extensions/engineering-build/tests -v
+Run: python -m unittest discover -s presets/engineering-build/tests -v
 Needs only the standard library. The install-level checks run when the `specify` CLI
 is on PATH and are skipped otherwise.
 """
@@ -17,7 +17,7 @@ from pathlib import Path
 PRESET = Path(__file__).resolve().parent.parent
 REPO = PRESET.parent.parent
 SKILLS_DIR = REPO / 'skills'
-INSTALLER = REPO / 'speckit-extensions' / 'install.py'
+INSTALLER = REPO / 'presets' / 'install.py'
 UPSTREAM = ('grill-me', 'database-schema-designer', 'api-designer', 'playwright-expert', 'ponytail')
 INTERNAL = ('engineering-build',)
 SKILLS = UPSTREAM + INTERNAL
@@ -25,7 +25,7 @@ CORE = ('speckit.constitution', 'speckit.specify', 'speckit.clarify', 'speckit.p
 REGISTRY = PRESET / 'bindings.yml'
 INSTALLED = Path('.specify') / 'presets' / 'engineering-build'
 # Last release that shipped the extension; used to test the upgrade path.
-OLD_RELEASE = '5ab92fc'
+OLD_RELEASE = '5ab92fc'  # its files are under speckit-extensions/
 
 
 def run(*cmd, cwd=None):

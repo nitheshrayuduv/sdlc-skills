@@ -37,8 +37,8 @@ It is one preset. It wraps the six core commands with `strategy: wrap`: an **Eng
 Install Spec Kit in the target repository first (`specify init`). Then, from the target repository's root, with sdlc-skills cloned next to it:
 
 ```bash
-python ../sdlc-skills/speckit-extensions/install.py install --dry-run
-python ../sdlc-skills/speckit-extensions/install.py install
+python ../sdlc-skills/presets/install.py install --dry-run
+python ../sdlc-skills/presets/install.py install
 ```
 
 Then run `/speckit-constitution` once in your agent if the repository already has a constitution. Details: [docs/install.md](docs/install.md). Day-to-day use: [docs/usage.md](docs/usage.md). Changing skills or releasing: [docs/maintaining.md](docs/maintaining.md).
@@ -52,5 +52,5 @@ Every companion-skill run or skip is written to `specs/<feature>/skill-runs.md`,
 From the sdlc-skills repository root:
 
 ```bash
-python -m unittest discover -s speckit-extensions/engineering-build/tests -v
+python -m unittest discover -s presets/engineering-build/tests -v
 ```
