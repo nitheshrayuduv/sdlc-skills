@@ -21,6 +21,10 @@ Feature requirements and repository evidence are the primary inputs. No single p
 - [Core plan command](https://github.com/github/spec-kit/blob/v1.2.0/templates/commands/plan.md): agent-executed hook dispatch and malformed-configuration behavior.
 - Tested release commit: `4ca46a0706a662b1edc07086ef16f021820c2db0` (Spec Kit v1.2.0). No upstream implementation is bundled in the extension.
 
+## Preset packaging checked on 12 November 2026
+
+- Spec Kit 1.2.5 presets: `strategy: wrap` with `{CORE_TEMPLATE}` composes text before and after each core command, including constitution and specify. `specify preset add --dev` copies the whole preset folder (minus `.presetignore`), so the guide, registry, adapters, detectors and staged skills install with it. Engineering Build moved from an extension with hooks to this single preset.
+
 ## Standalone distribution checked on 16 October 2026
 
 The standalone extension repository includes installation and release tools, without a dependency on the personal skill authoring checkout. Local checks cover separate target projects, explicit updates, runtime archives and all three tested agent integrations. No remote extension repository or release has been published by this package.

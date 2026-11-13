@@ -1,0 +1,5 @@
+# Source-only folders; the installed preset does not need them.
+tests/
+docs/
+__pycache__/
+*.pyc

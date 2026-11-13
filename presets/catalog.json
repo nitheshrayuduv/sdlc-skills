@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "presets": {
+    "engineering-build": {
+      "name": "Engineering Build",
+      "id": "engineering-build",
+      "version": "3.0.0",
+      "description": "Engineering Build across the Spec Kit workflow: wraps the six core commands and calls pinned companion skills at the right stage through a binding registry.",
+      "download_url": "https://REPLACE_AT_RELEASE/engineering-build-3.0.0.zip",
+      "sha256": "REPLACE_AT_RELEASE",
+      "requires": {
+        "speckit_version": ">=1.2.0,<2.0.0"
+      },
+      "license": "MIT",
+      "install_allowed": true
+    }
+  }
+}
