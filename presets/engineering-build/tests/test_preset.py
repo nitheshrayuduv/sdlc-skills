@@ -141,6 +141,21 @@ class LockChecks(unittest.TestCase):
             self.assertEqual(res.returncode, 3)
             self.assertIn('api-designer', res.stderr)
 
+    def test_hash_does_not_depend_on_platform_sort_order(self):
+        """Windows sorts Path objects case-insensitively, macOS and Linux case-sensitively."""
+        sys.path.insert(0, str(PRESET / 'scripts'))
+        try:
+            import verify_lock
+        finally:
+            sys.path.pop(0)
+        with tempfile.TemporaryDirectory() as tmp:
+            skill = Path(tmp)
+            for name in ('SKILL.md', 'LICENSE', 'references/b.md', 'references/A.md'):
+                (skill / name).parent.mkdir(exist_ok=True)
+                (skill / name).write_text(name, encoding='utf-8')
+            order = [p.relative_to(skill).as_posix() for p in verify_lock.skill_files(skill)]
+            self.assertEqual(order, ['LICENSE', 'SKILL.md', 'references/A.md', 'references/b.md'])
+
     def test_os_clutter_is_ignored(self):
         with tempfile.TemporaryDirectory() as tmp:
             skills = Path(tmp) / 'skills'
