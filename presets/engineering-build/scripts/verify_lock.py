@@ -12,13 +12,39 @@ so a checkout with autocrlf produces the same digest.
 """
 import argparse
 import hashlib
+import shutil
+import subprocess
 import sys
 from pathlib import Path
+
+# OS and Python clutter that is never part of a skill; left out of the hash.
+CLUTTER_NAMES = {'__pycache__', '.DS_Store', 'Thumbs.db', 'desktop.ini'}
+CLUTTER_SUFFIXES = ('.pyc', '.pyo')
+
+
+def is_clutter(rel_path):
+    return any(part in CLUTTER_NAMES for part in rel_path.parts) or rel_path.name.endswith(CLUTTER_SUFFIXES)
+
+
+def skill_files(skill_dir):
+    return sorted(p for p in skill_dir.rglob('*') if p.is_file() and not is_clutter(p.relative_to(skill_dir)))
+
+
+def git_changes(skill_dir):
+    """Files under skill_dir that differ from the git checkout (edited, untracked or ignored), or None outside git."""
+    if not shutil.which('git'):
+        return None
+    res = subprocess.run(['git', 'status', '--porcelain', '--ignored', '--untracked-files=all', '--', '.'],
+                         cwd=skill_dir, capture_output=True, text=True)
+    if res.returncode:
+        return None
+    return [line for line in res.stdout.splitlines()
+            if line.strip() and not is_clutter(Path(line[3:].strip().strip('"')))]
 
 
 def skill_digest(skill_dir):
     outer = hashlib.sha256()
-    for path in sorted(p for p in skill_dir.rglob('*') if p.is_file()):
+    for path in skill_files(skill_dir):
         rel = path.relative_to(skill_dir).as_posix()
         data = path.read_bytes().replace(b'\r\n', b'\n')
         outer.update(rel.encode() + b'\0' + hashlib.sha256(data).hexdigest().encode() + b'\n')
@@ -72,7 +98,17 @@ def main(argv=None):
             text = text.replace(f'sha256: {old}', f'sha256: {digest}', 1) if old else text
             continue
         if digest != entry.get('sha256'):
-            bad.append(f"{entry['id']}: hash drift (lock {entry.get('sha256','')[:12]}, actual {digest[:12]})")
+            msg = f"{entry['id']}: hash drift (lock {entry.get('sha256','')[:12]}, actual {digest[:12]})"
+            changes = git_changes(skill_dir)
+            if changes:
+                msg += ('\n  files that differ from the git checkout (M edited, ?? untracked, !! ignored):\n'
+                        + '\n'.join('    ' + c for c in changes)
+                        + '\n  restore edited files with `git checkout -- <file>` and delete the extra ones,'
+                          ' or check you are on the latest master (`git pull`)')
+            elif changes == []:
+                msg += ('\n  the folder matches the git checkout, so skills.lock.yml is out of date for it:'
+                        ' pull the latest master, or refresh the lock with --update if you changed the skill')
+            bad.append(msg)
     if args.update:
         lock_path.write_text(text, encoding='utf-8')
         print('lock updated')
