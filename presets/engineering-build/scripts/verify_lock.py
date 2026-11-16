@@ -27,7 +27,10 @@ def is_clutter(rel_path):
 
 
 def skill_files(skill_dir):
-    return sorted(p for p in skill_dir.rglob('*') if p.is_file() and not is_clutter(p.relative_to(skill_dir)))
+    # Sort by the forward-slash path as plain text. Sorting Path objects is case-insensitive on Windows
+    # and case-sensitive on macOS and Linux, which gave each platform a different hash.
+    files = [p for p in skill_dir.rglob('*') if p.is_file() and not is_clutter(p.relative_to(skill_dir))]
+    return sorted(files, key=lambda p: p.relative_to(skill_dir).as_posix())
 
 
 def git_changes(skill_dir):
