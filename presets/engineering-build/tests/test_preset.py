@@ -141,6 +141,29 @@ class LockChecks(unittest.TestCase):
             self.assertEqual(res.returncode, 3)
             self.assertIn('api-designer', res.stderr)
 
+    def test_os_clutter_is_ignored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            skills = Path(tmp) / 'skills'
+            shutil.copytree(SKILLS_DIR, skills)
+            (skills / 'grill-me' / '.DS_Store').write_bytes(b'\0\1')
+            (skills / 'ponytail' / '__pycache__').mkdir()
+            (skills / 'ponytail' / '__pycache__' / 'x.pyc').write_bytes(b'\0')
+            res = run(sys.executable, '-B', PRESET / 'scripts' / 'verify_lock.py', '--preset', PRESET, '--skills', skills)
+            self.assertEqual(res.returncode, 0, res.stderr)
+
+    @unittest.skipUnless(shutil.which('git'), 'git not installed')
+    def test_drift_names_the_files_that_differ(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            shutil.copytree(SKILLS_DIR, repo / 'skills')
+            for cmd in (('init', '-q'), ('add', '-A'), ('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'x')):
+                self.assertEqual(run('git', *cmd, cwd=repo).returncode, 0)
+            (repo / 'skills' / 'engineering-build' / 'references' / 'extension.md').write_text('left over\n', encoding='utf-8')
+            res = run(sys.executable, '-B', PRESET / 'scripts' / 'verify_lock.py', '--preset', PRESET, '--skills', repo / 'skills')
+            self.assertEqual(res.returncode, 3)
+            self.assertIn('engineering-build: hash drift', res.stderr)
+            self.assertIn('?? skills/engineering-build/references/extension.md', res.stderr)
+
 
 class PlaywrightRuleChecks(unittest.TestCase):
     """The post-write check fails a test containing waitForTimeout."""

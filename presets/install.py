@@ -41,7 +41,8 @@ CORE_COMMANDS = ('speckit.constitution', 'speckit.specify', 'speckit.clarify',
                  'speckit.plan', 'speckit.tasks', 'speckit.implement')
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_NAME = PRESET_ID + '.yml'  # project overrides, in .specify/ so updates never replace them
-STAGE_IGNORE = ('tests', 'docs', '__pycache__', '*.pyc', '.presetignore')
+SKILL_CLUTTER = ('__pycache__', '*.pyc', '*.pyo', '.DS_Store', 'Thumbs.db', 'desktop.ini')
+STAGE_IGNORE = ('tests', 'docs', '.presetignore') + SKILL_CLUTTER
 OK, FAIL, PREFLIGHT, INTEGRITY = 0, 1, 2, 3
 
 
@@ -158,7 +159,7 @@ def stage_preset(preset_src, skills_src, dest):
     verify_lock(preset_src, skills_src)
     shutil.copytree(preset_src, dest, ignore=shutil.ignore_patterns(*STAGE_IGNORE))
     for ident in locked_skill_ids(preset_src):
-        shutil.copytree(skills_src / ident, dest / 'skills' / ident, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+        shutil.copytree(skills_src / ident, dest / 'skills' / ident, ignore=shutil.ignore_patterns(*SKILL_CLUTTER))
     verify_lock(dest)
     return dest
 
@@ -301,7 +302,7 @@ def install_agent_skills(ctx):
         if not ctx.dry:
             if target.exists():
                 shutil.rmtree(target)
-            shutil.copytree(src, target, ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
+            shutil.copytree(src, target, ignore=shutil.ignore_patterns(*SKILL_CLUTTER))
 
 
 def unresolved_commands(ctx, specify):

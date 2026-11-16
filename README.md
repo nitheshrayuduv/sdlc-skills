@@ -237,5 +237,5 @@ The suite checks the preset manifest, the wrapped commands, bindings, lock integ
 | Updated Spec Kit commands do not appear | Restart the agent; check `specify preset list` |
 | `skill-runs.md` is missing after a stage | Check that `specify preset resolve speckit.plan` shows a `[wrap]` from `engineering-build`, then restart the agent |
 | A higher-priority preset replaces a command | Give `engineering-build` a lower number: `specify preset set-priority engineering-build 1` |
-| `hash drift` from `verify_lock.py` | A skill was edited. Restore it, or review it and refresh the hashes ([Add a skill to a stage](#add-a-skill-to-a-stage)) |
+| `hash drift` during install | Your sdlc-skills copy differs from the lock. The error lists the files: an edited file (`M`), or an extra one (`??`, `!!`) such as a file left over from an older version. Restore or delete them, and `git pull` the latest master. If you changed a skill on purpose, refresh the hashes ([Add a skill to a stage](#add-a-skill-to-a-stage)) |
 | Old `speckit-engineering-build-*`, `speckit-sdlc-skills-*` or `speckit-engineering-plan-*` commands still appear | Run `install.py update`, or remove the older packages ([Update or remove](#update-or-remove)) |
